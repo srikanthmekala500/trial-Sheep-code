@@ -14,7 +14,18 @@
         .status-healthy { color: #28a745; font-weight: bold; }
         .status-corentin { color: #dc3545; font-weight: bold; }
         .status-treatment { color: #ffc107; font-weight: bold; }
+        .status-pregnant { color: #6f42c1; font-weight: bold; } /* A nice purple for pregnant status */
+        .bg-purple { background-color: #6f42c1; }
+        .bg-pink { background-color: #e83e8c; }
         .loading { font-style: italic; color: #6c757d; }
+        .sidebar-heading {
+            padding: 0.75rem 1rem 0.25rem;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: .05rem;
+        }
 
         /* Dashboard Layout */
         .dashboard-layout {
@@ -157,17 +168,28 @@
         <div class="dashboard-layout">
             <nav class="dashboard-sidebar">
                 <ul class="nav flex-column" id="mainNav">
-                    <li class="nav-item"><a class="nav-link active" href="#" data-section="home"><i class="fas fa-home fa-fw me-2"></i>Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#" data-section="records"><i class="fas fa-heartbeat fa-fw me-2"></i>Healthy Records</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#" data-section="corentin"><i class="fas fa-biohazard fa-fw me-2"></i>Corentin Records</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#" data-section="treatment"><i class="fas fa-pills fa-fw me-2"></i>Treatment Records</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#" data-section="schedule"><i class="fas fa-calendar-alt fa-fw me-2"></i>Health Schedule</a></li>
+                    <li class="sidebar-heading">Main</li>
+                    <li class="nav-item"><a class="nav-link active" href="#" data-section="home"><i class="fas fa-home fa-fw me-2"></i>Dashboard</a></li>
+                    
+                    <li class="sidebar-heading mt-3">Record Lists</li>
+                    <li class="nav-item"><a class="nav-link" href="#" data-section="records"><i class="fas fa-heartbeat fa-fw me-2"></i>Healthy & Recovering</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" data-section="corentin"><i class="fas fa-biohazard fa-fw me-2"></i>Corentin</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" data-section="overdue"><i class="fas fa-exclamation-triangle fa-fw me-2 text-danger"></i>Overdue Follow-ups</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" data-section="treatment"><i class="fas fa-pills fa-fw me-2"></i>Under Treatment</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" data-section="pregnant"><i class="fas fa-baby-carriage fa-fw me-2"></i>Pregnant</a></li>
+
+                    <li class="sidebar-heading mt-3">Management</li>
+                    <li class="nav-item"><a class="nav-link" href="#" data-section="schedule"><i class="fas fa-calendar-alt fa-fw me-2"></i>Preventative Care</a></li>
                     <li class="nav-item"><a class="nav-link" href="#" data-section="weekly"><i class="fas fa-calendar-week fa-fw me-2"></i>Weekly Tracking</a></li>
+
+                    <li class="sidebar-heading mt-3">Analytics</li>
                     <li class="nav-item"><a class="nav-link" href="#" data-section="profile"><i class="fas fa-user fa-fw me-2"></i>Sheep Profile</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#" data-section="weight"><i class="fas fa-chart-line fa-fw me-2"></i>Weight Tracking</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" data-section="weight"><i class="fas fa-chart-line fa-fw me-2"></i>Weight Charts</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" data-section="growth"><i class="fas fa-tachometer-alt fa-fw me-2"></i>Growth Analytics</a></li>
+
+                    <li class="sidebar-heading mt-3">Archive</li>
                     <li class="nav-item"><a class="nav-link" href="#" data-section="saled"><i class="fas fa-dollar-sign fa-fw me-2"></i>Sold Records</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#" data-section="archived"><i class="fas fa-archive fa-fw me-2"></i>Archived</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#" data-section="analytics"><i class="fas fa-chart-pie fa-fw me-2"></i>Analytics</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" data-section="archived"><i class="fas fa-archive fa-fw me-2"></i>Deceased Records</a></li>
                 </ul>
             </nav>
 
@@ -175,36 +197,115 @@
         
                 <!-- Home Section -->
                 <div id="homeSection">
-                    <h2 class="mb-4">Dashboard Overview</h2>
-                    <div class="row mb-4">
-                        <div class="col-md-6 mb-3 mb-md-0">
-                            <div class="card h-100">
-                                <div class="card-header bg-success text-white">
-                                    <i class="fas fa-rocket me-2"></i>Top 5 Fastest Growing Sheep (ADG)
+                    <h2 class="mb-4">Flock Dashboard</h2>
+                    <!-- Status Cards Row -->
+                    <div class="row">
+                        <div class="col-xl-3 col-md-6 mb-4">
+                            <div class="card bg-primary text-white h-100">
+                                <div class="card-body d-flex justify-content-between align-items-center">
+                                    <i class="fas fa-layer-group fa-3x"></i>
+                                    <div class="text-end">
+                                        <div class="fs-4 fw-bold" id="totalCount">0</div>
+                                        <div class="text-white-75 small">Total Active</div>
+                                    </div>
                                 </div>
-                                <ul class="list-group list-group-flush" id="fastestGrowersList">
-                                    <li class="list-group-item text-muted">Calculating...</li>
-                                </ul>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-header bg-warning text-dark">
-                                    <i class="fas fa-tortoise me-2"></i>Slowest Growing Sheep (ADG)
+                        <div class="col-xl-3 col-md-6 mb-4">
+                            <div class="card bg-success text-white h-100">
+                                <div class="card-body d-flex justify-content-between align-items-center">
+                                    <i class="fas fa-heartbeat fa-3x"></i>
+                                    <div class="text-end">
+                                        <div class="fs-4 fw-bold" id="healthyCount">0</div>
+                                        <div class="text-white-75 small">Healthy</div>
+                                    </div>
                                 </div>
-                                <ul class="list-group list-group-flush scrollable-list" id="slowestGrowersList">
-                                    <li class="list-group-item text-muted">Calculating...</li>
-                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-md-6 mb-4">
+                            <div class="card bg-info text-white h-100">
+                                <div class="card-body d-flex justify-content-between align-items-center">
+                                    <i class="fas fa-mars fa-3x"></i>
+                                    <div class="text-end">
+                                        <div class="fs-4 fw-bold" id="maleCount">0</div>
+                                        <div class="text-white-75 small">Males</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-md-6 mb-4">
+                            <div class="card bg-pink text-white h-100">
+                                <div class="card-body d-flex justify-content-between align-items-center">
+                                    <i class="fas fa-venus fa-3x"></i>
+                                    <div class="text-end">
+                                        <div class="fs-4 fw-bold" id="femaleCount">0</div>
+                                        <div class="text-white-75 small">Females</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-md-6 mb-4">
+                            <div class="card bg-danger text-white h-100">
+                                <div class="card-body d-flex justify-content-between align-items-center">
+                                    <i class="fas fa-biohazard fa-3x"></i>
+                                    <div class="text-end">
+                                        <div class="fs-4 fw-bold" id="sickCount">0</div>
+                                        <div class="text-white-75 small">Corentin</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-md-6 mb-4">
+                            <div class="card bg-warning text-dark h-100">
+                                <div class="card-body d-flex justify-content-between align-items-center">
+                                    <i class="fas fa-pills fa-3x"></i>
+                                    <div class="text-end">
+                                        <div class="fs-4 fw-bold" id="treatmentCount">0</div>
+                                        <div class="small">Under Treatment</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-md-6 mb-4">
+                            <div class="card bg-purple text-white h-100">
+                                <div class="card-body d-flex justify-content-between align-items-center">
+                                    <i class="fas fa-baby-carriage fa-3x"></i>
+                                    <div class="text-end">
+                                        <div class="fs-4 fw-bold" id="pregnantCount">0</div>
+                                        <div class="text-white-75 small">Pregnant</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-
                     <hr class="my-4">
-
-                    <h2 class="mb-4">Add New Health Record</h2>
-                    <form id="sheepHealthForm">
-                        <div class="mb-3"><label for="sheepId" class="form-label">Sheep ID</label><input type="text" class="form-control" id="sheepId" required></div><div class="mb-3"><label for="healthStatus" class="form-label">Health Status</label><select class="form-select" id="healthStatus" required><option value="Healthy">Healthy</option><option value="Recovering">Recovering</option><option value="Corentin">Corentin</option><option value="Under Treatment">Under Treatment</option></select></div><div class="mb-3"><label for="dateRecorded" class="form-label">Date Recorded</label><input type="date" class="form-control" id="dateRecorded" required></div><div class="row"><div class="col-md-6 mb-3"><label for="weight" class="form-label">Weight (kg)</label><input type="number" step="0.1" class="form-control" id="weight"></div><div class="col-md-6 mb-3"><label for="temperature" class="form-label">Temperature (°C)</label><input type="number" step="0.1" class="form-control" id="temperature"></div></div><div class="mb-3"><label for="notes" class="form-label">Initial Notes</label><textarea class="form-control" id="notes" rows="3"></textarea></div><div class="d-grid gap-2 d-md-flex justify-content-md-end"><button type="submit" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add Record</button></div>
-                    </form>
+                    <div class="row">
+                        <!-- Left Column: Main Action -->
+                        <div class="col-lg-8">
+                            <h2 class="mb-4">Add New Health Record</h2>
+                            <form id="sheepHealthForm" class="needs-navigation">
+                                <div class="mb-3"><label for="sheepId" class="form-label">Sheep ID</label><input type="text" class="form-control" id="sheepId" required></div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3"><label for="gender" class="form-label">Gender</label><select class="form-select" id="gender" required><option value="Female">Female</option><option value="Male">Male</option></select></div>
+                                    <div class="col-md-6 mb-3"><label for="breed" class="form-label">Breed</label><input type="text" class="form-control" id="breed" placeholder="e.g., Merino, Dorper"></div>
+                                </div>
+                                <div class="mb-3"><label for="buyingPrice" class="form-label">Buying Price (₹)</label><input type="number" step="0.01" class="form-control" id="buyingPrice" placeholder="e.g., 5000.00"></div>
+                                <div class="mb-3"><label for="healthStatus" class="form-label">Health Status</label><select class="form-select" id="healthStatus" required><option value="Healthy">Healthy</option><option value="Recovering">Recovering</option><option value="Corentin">Corentin</option><option value="Under Treatment">Under Treatment</option><option value="Pregnant">Pregnant</option></select></div>
+                                <div class="mb-3"><label for="dateRecorded" class="form-label">Date Recorded</label><input type="date" class="form-control" id="dateRecorded" required></div>
+                                <div class="row"><div class="col-md-6 mb-3"><label for="weight" class="form-label">Weight (kg)</label><input type="number" step="0.1" class="form-control" id="weight"></div><div class="col-md-6 mb-3"><label for="temperature" class="form-label">Temperature (°C)</label><input type="number" step="0.1" class="form-control" id="temperature"></div></div><div class="mb-3"><label for="notes" class="form-label">Initial Notes</label><textarea class="form-control" id="notes" rows="4"></textarea></div><div class="d-grid gap-2 d-md-flex justify-content-md-end"><button type="submit" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add Record</button></div>
+                            </form>
+                        </div>
+                        <!-- Right Column: Overview -->
+                        <div class="col-lg-4">
+                            <h2 class="mb-4">Quick Overview</h2>
+                            <div class="card">
+                                <div class="card-header">Monthly Sales Summary</div>
+                                <div id="monthlySalesSummary" class="card-body p-0">
+                                    <!-- Summary will be rendered here by JS -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
         <!-- Healthy Records Section -->
@@ -219,8 +320,27 @@
             </div>
             <div class="table-responsive">
                 <table class="table table-hover table-striped">
-                    <thead><tr><th>Sheep ID</th><th>Status</th><th>Date</th><th>Weight</th><th>Temp</th><th>Notes</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Sheep ID</th><th>Gender</th><th>Breed</th><th>Status</th><th>Date</th><th>Weight</th><th>Temp</th><th>Buying Price</th><th>Notes</th><th>Actions</th></tr></thead>
                     <tbody id="healthyRecordsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Overdue Records Section -->
+        <div id="overdueSection" class="hidden">
+            <h2 class="mb-4 text-danger"><i class="fas fa-exclamation-triangle"></i> Overdue Follow-up Records</h2>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="input-group w-50">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="overdueSearchInput" data-table-body-id="overdueRecordsTableBody" placeholder="Search by Sheep ID...">
+                </div>
+                <button class="btn btn-outline-success js-export-overdue"><i class="fas fa-download"></i> Export CSV</button>
+            </div>
+            <p class="text-muted">This section lists all sheep with a follow-up date that has passed. These records have been moved from the Corentin & Treatment lists for priority attention.</p>
+            <div class="table-responsive">
+                <table class="table table-hover table-striped">
+                    <thead><tr><th>Sheep ID</th><th>Status</th><th>Date</th><th>Last Update</th><th>Follow-up Date</th><th>Actions</th></tr></thead>
+                    <tbody id="overdueRecordsTableBody"></tbody>
                 </table>
             </div>
         </div>
@@ -237,7 +357,7 @@
             </div>
             <div class="table-responsive">
                 <table class="table table-hover table-striped">
-                    <thead><tr><th>Sheep ID</th><th>Status</th><th>Date</th><th>Last Update</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Sheep ID</th><th>Status</th><th>Date</th><th>Last Update</th><th>Follow-up Date</th><th>Actions</th></tr></thead>
                     <tbody id="corentinRecordsTableBody"></tbody>
                 </table>
             </div>
@@ -255,48 +375,107 @@
             </div>
             <div class="table-responsive">
                 <table class="table table-hover table-striped">
-                    <thead><tr><th>Sheep ID</th><th>Status</th><th>Date</th><th>Last Update</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Sheep ID</th><th>Status</th><th>Date</th><th>Last Update</th><th>Follow-up Date</th><th>Actions</th></tr></thead>
                     <tbody id="treatmentRecordsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pregnant Records Section -->
+        <div id="pregnantSection" class="hidden">
+            <h2 class="mb-4">Pregnant Records</h2>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="input-group w-50">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="pregnantSearchInput" data-table-body-id="pregnantRecordsTableBody" placeholder="Search by Sheep ID...">
+                </div>
+                <button class="btn btn-outline-success js-export-pregnant"><i class="fas fa-download"></i> Export CSV</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover table-striped">
+                    <thead><tr><th>Sheep ID</th><th>Status</th><th>Date</th><th>Last Update</th><th>Follow-up Date</th><th>Actions</th></tr></thead>
+                    <tbody id="pregnantRecordsTableBody"></tbody>
                 </table>
             </div>
         </div>
 
         <!-- Health Schedule Section -->
         <div id="scheduleSection" class="hidden">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="mb-0">Preventative Care Schedule</h2>
-                <button id="batchLogBtn" class="btn btn-primary" style="display: none;">
-                    <i class="fas fa-syringe me-2"></i>Log Batch Treatment
-                </button>
-            </div>
-            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                 <div class="input-group" style="max-width: 400px;">
-                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                    <input type="text" class="form-control" id="scheduleSearchInput" data-table-body-id="scheduleTableBody" placeholder="Search by Sheep ID...">
-                </div>
-                <div class="btn-group" id="scheduleFilterButtons">
-                    <button class="btn btn-outline-secondary active" data-filter="all">All</button>
-                    <button class="btn btn-outline-secondary" data-filter="overdue">Overdue</button>
-                    <button class="btn btn-outline-secondary" data-filter="upcoming">Upcoming (30 days)</button>
+            <div class="d-flex align-items-center mb-4">
+                <i class="fas fa-calendar-alt fa-2x text-primary me-3"></i>
+                <div>
+                    <h2 class="mb-0">Preventative Care Schedule</h2>
+                    <p class="text-muted mb-0">Track routine deworming and vaccinations for your flock.</p>
                 </div>
             </div>
-            <p class="text-muted mb-4">
-                Track and manage routine treatments. Select multiple sheep using the checkboxes to log treatments in a batch.
-            </p>
-            <div class="table-responsive">
-                <table class="table table-hover table-striped" id="scheduleTable">
-                    <thead>
+
+            <!-- Summary Cards -->
+            <div class="row mb-4">
+                <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="card text-white bg-danger h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <i class="fas fa-exclamation-circle fa-3x"></i>
+                                <div class="text-end">
+                                    <div class="fs-4 fw-bold" id="scheduleOverdueCount">0</div>
+                                    <div class="small">Overdue Items</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="card text-dark bg-warning h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <i class="fas fa-bell fa-3x"></i>
+                                <div class="text-end">
+                                    <div class="fs-4 fw-bold" id="scheduleUpcomingCount">0</div>
+                                    <div class="small">Upcoming (30 Days)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="card card-body bg-light border-0 mb-4">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                    <!-- Left side: Search -->
+                    <div class="input-group" style="max-width: 350px; flex-grow: 1;">
+                        <span class="input-group-text" id="schedule-search-icon"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control" id="scheduleSearchInput" data-table-body-id="scheduleTableBody" placeholder="Search by Sheep ID..." aria-label="Search by Sheep ID" aria-describedby="schedule-search-icon">
+                    </div>
+                    
+                    <!-- Right side: Filters & Actions -->
+                    <div class="d-flex align-items-center flex-wrap gap-2">
+                        <div class="btn-group" id="scheduleFilterButtons" role="group" aria-label="Filter schedule view">
+                            <button type="button" class="btn btn-outline-secondary active" data-filter="all">All</button>
+                            <button type="button" class="btn btn-outline-secondary" data-filter="overdue">Overdue</button>
+                            <button type="button" class="btn btn-outline-secondary" data-filter="upcoming">Upcoming (30 days)</button>
+                        </div>
+                        <button id="batchLogBtn" class="btn btn-primary" style="display: none;">
+                            <i class="fas fa-syringe me-2"></i>Log Batch Treatment
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive shadow-sm rounded">
+                <table class="table table-hover align-middle mb-0" id="scheduleTable" style="--bs-table-hover-bg: rgba(0,0,0,0.04);">
+                    <thead class="table-dark">
                         <tr>
-                            <th><input type="checkbox" class="form-check-input" id="selectAllSchedule" title="Select All"></th>
-                            <th>Sheep ID</th>
-                            <th>Deworming Status</th>
-                            <th>Deworming Notes</th>
-                            <th>Vaccination Status</th>
-                            <th>Vaccination Notes</th>
-                            <th>Actions</th>
+                            <th scope="col" class="text-center" style="width: 40px;"><input class="form-check-input" type="checkbox" id="selectAllSchedule" title="Select all on this page"></th>
+                            <th scope="col">Sheep ID</th>
+                            <th scope="col">Deworming</th>
+                            <th scope="col">Vaccination</th>
+                            <th scope="col" class="text-center" style="width: 120px;">Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="scheduleTableBody"></tbody>
+                    <tbody id="scheduleTableBody">
+                        <!-- JavaScript will populate this section with the new design -->
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -373,93 +552,142 @@
         </div>
 
         <!-- Sheep Profile Section -->
-        <div id="profileSection" class="hidden">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2 class="mb-0">Individual Sheep Profile</h2>
-                <button id="profileEditBtn" class="btn btn-primary" style="display: none;"><i class="fas fa-edit me-2"></i>Edit Sheep</button>
+<div id="profileSection" class="hidden">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+        <div class="d-flex align-items-center mb-2 mb-md-0">
+            <select class="form-select w-auto me-2" id="profileSheepSelector"></select>
+            <div class="input-group" style="max-width: 250px;">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" class="form-control" id="profileSearchInput" placeholder="Filter sheep list...">
             </div>
-            <p class="text-muted mb-4">
-                Select a sheep to view its complete history, including health status, treatments, weight, and preventative care.
-            </p>
-            <div class="mb-4"> 
-                <label for="profileSheepSelector" class="form-label"><strong>Select or Search for a Sheep:</strong></label>
-                <div class="input-group mb-2">
-                    <input type="text" id="profileSearchInput" class="form-control" placeholder="Search for a sheep by ID...">
-                    <button class="btn btn-outline-secondary" id="prevSheepBtn" title="Previous Sheep"><i class="fas fa-chevron-left"></i></button>
-                    <button class="btn btn-outline-secondary" id="nextSheepBtn" title="Next Sheep"><i class="fas fa-chevron-right"></i></button>
-                </div>
-                <select id="profileSheepSelector" class="form-select">
-                    <option selected disabled>Loading sheep...</option>
-                </select>
-            </div>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-outline-secondary" id="prevSheepBtn" title="Previous Sheep"><i class="fas fa-chevron-left"></i></button>
+            <button class="btn btn-outline-secondary" id="nextSheepBtn" title="Next Sheep"><i class="fas fa-chevron-right"></i></button>
+        </div>
+    </div>
 
-            <div id="noProfileData" class="alert alert-info text-center">
-                Select a sheep to view its profile.
-            </div>
+    <div id="noProfileData" class="text-center p-5">
+        <i class="fas fa-id-card fa-3x text-muted mb-3"></i>
+        <h4>Select a sheep to view its profile.</h4>
+    </div>
 
-            <div id="profileDisplayArea" style="display: none;">
-                <!-- Row 1: Core Info & Sale Info -->
-                <div class="row">
-                    <div class="col-md-8">
-                        <div class="card mb-4">
-                            <div class="card-header"><h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Core Information</h5></div>
-                            <div class="card-body">
-                                <dl class="row mb-0">
-                                    <dt class="col-sm-3">Sheep ID</dt>
-                                    <dd class="col-sm-9"><strong id="profileSheepId"></strong></dd>
-
-                                    <dt class="col-sm-3">Health Status</dt>
-                                    <dd class="col-sm-9" id="profileHealthStatus"></dd>
-
-                                    <dt class="col-sm-3">Date Recorded</dt>
-                                    <dd class="col-sm-9" id="profileDateRecorded"></dd>
-
-                                    <dt class="col-sm-3">Initial Notes</dt>
-                                    <dd class="col-sm-9"><p id="profileInitialNotes" class="mb-0" style="white-space: pre-wrap;"></p></dd>
-                                </dl>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card mb-4" id="profileSaleInfoCard" style="display: none;">
-                            <div class="card-header bg-success text-white"><h5 class="mb-0"><i class="fas fa-dollar-sign me-2"></i>Sale Information</h5></div>
-                            <div class="card-body">
-                                <dl class="row mb-0">
-                                    <dt class="col-sm-5">Sale Date</dt>
-                                    <dd class="col-sm-7" id="profileSaleDate"></dd>
-                                     <dt class="col-sm-5">Sale Price</dt>
-                                    <dd class="col-sm-7" id="profileSalePrice"></dd>
-                                     <dt class="col-sm-5">Buyer</dt>
-                                    <dd class="col-sm-7" id="profileSaleBuyer"></dd>
-                                     <dt class="col-sm-5">Notes</dt>
-                                    <dd class="col-sm-7" id="profileSaleNotes"></dd>
-                                </dl>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Row 2: Preventative Care -->
+    <div id="profileDisplayArea" style="display: none;">
+        <div class="row">
+            <!-- Left Column: Vitals & Status -->
+            <div class="col-lg-4">
                 <div class="card mb-4">
-                    <div class="card-header"><h5 class="mb-0"><i class="fas fa-shield-alt me-2"></i>Preventative Care</h5></div>
+                    <div class="card-body text-center">
+                        <i class="fas fa-sheep fa-5x text-muted mb-3"></i>
+                        <h4 class="mb-1" id="profileSheepId"></h4>
+                        <div class="mb-3" id="profileHealthStatus"></div>
+                        <button class="btn btn-primary" id="profileEditBtn"><i class="fas fa-edit"></i> Edit Profile</button>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header">Key Information</div>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center"><strong>Age</strong> <span id="profileAge"></span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center"><strong>Start Date</strong> <span id="profileDateRecorded"></span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center"><strong>Gender</strong> <span id="profileGender"></span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center"><strong>Breed</strong> <span id="profileBreed"></span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center"><strong>Buying Price</strong> <span id="profileBuyingPrice"></span></li>
+                        <li class="list-group-item">
+                            <strong>Initial Notes</strong>
+                            <p class="mb-0 p-2 bg-light rounded mt-1" id="profileInitialNotes" style="white-space: pre-wrap;"></p>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header">Preventative Care</div>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Deworming</h6>
+                                <span id="profileDewormingStatus"></span>
+                            </div>
+                            <small class="text-muted" id="profileDewormingNotes"></small>
+                        </li>
+                        <li class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Vaccination</h6>
+                                <span id="profileVaccinationStatus"></span>
+                            </div>
+                            <small class="text-muted" id="profileVaccinationNotes"></small>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="card mb-4" id="profileSaleInfoCard" style="display: none;">
+                    <div class="card-header bg-success text-white">Sale Information</div>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center"><strong>Sale Date</strong> <span id="profileSaleDate"></span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center"><strong>Price</strong> <span id="profileSalePrice"></span></li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <strong>Profit / Loss</strong>
+                            <span id="profileProfitLoss" class="fw-bold"></span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center"><strong>Buyer</strong> <span id="profileSaleBuyer"></span></li>
+                        <li class="list-group-item">
+                            <strong>Sale Notes</strong>
+                            <p class="mb-0 p-2 bg-light rounded mt-1" id="profileSaleNotes" style="white-space: pre-wrap;"></p>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Right Column: History & Logs -->
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="fas fa-chart-line"></i> Growth & Weight History
+                    </div>
                     <div class="card-body">
-                        <div class="row"><div class="col-md-6 border-end"><h6>Deworming</h6><dl class="row mb-0"><dt class="col-sm-4">Status</dt><dd class="col-sm-8" id="profileDewormingStatus"></dd><dt class="col-sm-4">Notes</dt><dd class="col-sm-8" id="profileDewormingNotes"></dd></dl></div><div class="col-md-6"><h6>Vaccination</h6><dl class="row mb-0"><dt class="col-sm-4">Status</dt><dd class="col-sm-8" id="profileVaccinationStatus"></dd><dt class="col-sm-4">Notes</dt><dd class="col-sm-8" id="profileVaccinationNotes"></dd></dl></div></div>
+                        <div class="row">
+                            <div class="col-md-4" id="profileWeightStatsBody">
+                                <!-- Stats will be rendered here by JS -->
+                            </div>
+                            <div class="col-md-8">
+                                <div id="profileWeightChartContainer" style="position: relative; height:250px">
+                                    <canvas id="profileWeightChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <hr>
+                        <h6 class="mt-3">Weight Log</h6>
+                        <div id="profileWeightTableContainer"></div>
                     </div>
                 </div>
 
-                <!-- Row 3: Weight Tracking -->
                 <div class="card mb-4">
-                    <div class="card-header"><h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Weight Progression</h5></div>
-                    <div class="card-body" id="profileWeightDisplayArea"><div class="row"><div class="col-lg-8 mb-4 mb-lg-0"><div id="profileWeightChartContainer" style="height: 300px;"><canvas id="profileWeightChart"></canvas></div></div><div class="col-lg-4"><div id="profileWeightStatsContainer" class="card h-100"><div class="card-body text-center" id="profileWeightStatsBody"></div></div></div></div><h5 class="mt-4">Weight History</h5><div id="profileWeightTableContainer" class="table-responsive"></div></div>
-                </div>
-
-                <!-- Row 4: Treatment History -->
-                <div class="card mb-4">
-                    <div class="card-header"><h5 class="mb-0"><i class="fas fa-pills me-2"></i>Treatment History</h5></div>
-                    <div class="card-body"><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Date</th><th>Type</th><th>Symptoms</th><th>Medication</th><th>Dosage</th><th>Notes</th></tr></thead><tbody id="profileTreatmentHistoryTbody"></tbody></table></div></div>
+                    <div class="card-header">
+                        <i class="fas fa-file-medical-alt"></i> Treatment History
+                    </div>
+                    <div class="card-body table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Cost</th>
+                                    <th>Symptoms</th>
+                                    <th>Medication</th>
+                                    <th>Dosage</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="profileTreatmentHistoryTbody">
+                                <!-- Content generated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
+    </div>
+</div>
         
         <!-- Sold Records Section -->
         <div id="saledSection" class="hidden">
@@ -473,7 +701,17 @@
                 </div>
             <div class="table-responsive">
                 <table class="table table-hover table-striped">
-                    <thead><tr><th>Sheep ID</th><th>Status</th><th>Date Sold</th><th>Price</th><th>Buyer</th><th>Notes</th><th>Actions</th></tr></thead>
+                    <!-- <thead><tr><th>Sheep ID</th><th>Status</th><th>Date Sold</th><th>Price</th><th>Buyer</th><th>Notes</th><th>Profit/Loss</th><th>Actions</th></tr></thead> -->
+                     <thead>
+    <tr>
+        <th scope="col">Sheep Details</th>
+        <th scope="col">Financial Summary</th>
+        <th scope="col">Sale Details</th>
+        <th scope="col">Status at Sale</th>
+        <th scope="col" class="text-center">Actions</th>
+    </tr>
+</thead>
+
                     <tbody id="sheepSaledTableBody"></tbody>
                 </table>
             </div>
@@ -482,45 +720,64 @@
         <!-- Archived Records Section -->
         <div id="archivedSection" class="hidden">
             <h2 class="mb-4">Archived Records (Deceased)</h2>
-            <div class="input-group w-50 mb-3">
-                <span class="input-group-text"><i class="fas fa-search"></i></span>
-                <input type="text" class="form-control" id="archivedSearchInput" data-table-body-id="archivedRecordsTableBody" placeholder="Search by Sheep ID...">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="input-group w-50">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="archivedSearchInput" data-table-body-id="archivedRecordsTableBody" placeholder="Search by Sheep ID...">
+                </div>
+                <button class="btn btn-outline-success js-export-archived"><i class="fas fa-download"></i> Export CSV</button>
             </div>
             <div class="table-responsive">
                 <table class="table table-hover table-striped">
-                    <thead><tr><th>Sheep ID</th><th>Status</th><th>Date Archived</th><th>Original Date</th><th>Notes</th><th>Actions</th></tr></thead>
+                    <thead><tr><th scope="col">Sheep Details</th><th scope="col">Archive Details</th><th scope="col">Status at Archive</th><th scope="col" class="text-center">Actions</th></tr></thead>
                     <tbody id="archivedRecordsTableBody"></tbody>
                 </table>
             </div>
         </div>
 
-        <!-- Analytics Section -->
-        <div id="analyticsSection" class="hidden">
-             <h2 class="mb-4">Analytics & Stats</h2>
-            <div class="row text-center mb-4">
-                <div class="col-md-3"><div class="card p-3"><h5 class="text-primary">Total Active</h5><h1 id="totalCount">0</h1></div></div>
-                <div class="col-md-3"><div class="card p-3"><h5 class="text-success">Healthy/Recovering</h5><h1 id="healthyCount">0</h1></div></div>
-                <div class="col-md-3"><div class="card p-3"><h5 class="text-danger">Corentin</h5><h1 id="sickCount">0</h1></div></div>
-                <div class="col-md-3"><div class="card p-3"><h5 class="text-warning">Under Treatment</h5><h1 id="treatmentCount">0</h1></div></div>
-            </div>
-            <div class="mb-4">
-                <h3 class="text-center mb-3">Health Status Distribution</h3>
-                <canvas id="healthStatusChart"></canvas>
-            </div>
-            <hr class="my-4">
-            <h3 class="mb-4">Healthy & Recovering Records</h3>
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div class="input-group w-50">
-                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                    <input type="text" class="form-control" id="analyticsSearchInput" data-table-body-id="analyticsHealthyRecordsTableBody" placeholder="Search by Sheep ID...">
+        <!-- Growth Analytics Section -->
+        <div id="growthSection" class="hidden">
+            <h2 class="mb-4">Growth Analytics (Average Daily Gain)</h2>
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title text-muted">Flock Average ADG</h5>
+                            <p class="card-text display-5 fw-bold text-primary" id="flockAverageAdg">
+                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                <span class="visually-hidden">Loading...</span>
+                            </p>
+                            <p class="card-text"><small class="text-muted">Based on all sheep with at least two weight records.</small></p>
+                        </div>
+                    </div>
                 </div>
-                <button class="btn btn-outline-success js-export-healthy"><i class="fas fa-download"></i> Export CSV</button>
             </div>
-            <div class="table-responsive">
-                <table class="table table-hover table-striped">
-                    <thead><tr><th>Sheep ID</th><th>Status</th><th>Date</th><th>Weight</th><th>Temp</th><th>Notes</th><th>Actions</th></tr></thead>
-                    <tbody id="analyticsHealthyRecordsTableBody"></tbody>
-                </table>
+
+            <div class="row mb-4">
+                <div class="col-md-6 mb-3 mb-md-0">
+                    <div class="card h-100">
+                        <div class="card-header bg-success text-white">
+                            <i class="fas fa-rocket me-2"></i>Top 5 Fastest Growing Sheep
+                        </div>
+                        <div class="list-group list-group-flush" id="fastestGrowersList">
+                            <div class="list-group-item text-muted p-4 text-center">Calculating...</div>
+                            <!-- JS will render items like: -->
+                            <!-- <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center profile-link" data-sheep-id="[ID]">Sheep ID <span class="badge bg-success rounded-pill">ADG g/day</span></a> -->
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-warning text-dark">
+                            <i class="fas fa-tortoise me-2"></i>Slowest Growing Sheep
+                        </div>
+                        <div class="list-group list-group-flush scrollable-list" id="slowestGrowersList">
+                            <div class="list-group-item text-muted p-4 text-center">Calculating...</div>
+                            <!-- JS will render items like: -->
+                            <!-- <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center profile-link" data-sheep-id="[ID]">Sheep ID <span class="badge bg-warning text-dark rounded-pill">ADG g/day</span></a> -->
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
             </main>
@@ -528,19 +785,32 @@
 
         <!-- MODALS (Content remains the same, but button handlers are moved to JS) -->
         <!-- Edit Sheep Modal -->
-        <div class="modal fade" id="editSheepModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" id="editSheepForm"><div class="modal-header"><h5 class="modal-title">Edit Sheep Health Record</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="editRecordId"><div class="mb-3"><label for="editSheepId" class="form-label">Sheep ID</label><input type="text" class="form-control" id="editSheepId" required></div><div class="mb-3"><label for="editHealthStatus" class="form-label">Health Status</label><select class="form-select" id="editHealthStatus" required><option value="Healthy">Healthy</option><option value="Recovering">Recovering</option><option value="Corentin">Corentin</option><option value="Under Treatment">Under Treatment</option><option value="Deceased">Deceased</option></select></div><div class="mb-3"><label for="editDateRecorded" class="form-label">Date Recorded</label><input type="date" class="form-control" id="editDateRecorded" required></div><div class="mb-3"><label for="editNotes" class="form-label">Initial Notes</label><textarea class="form-control" id="editNotes" rows="3"></textarea></div><hr><h6 class="text-muted">Preventative Care Dates (Manual Override)</h6><div class="row"><div class="col-md-6 mb-3"><label for="editLastDewormingDate" class="form-label">Last Deworming</label><input type="date" class="form-control" id="editLastDewormingDate"></div></div><div class="mb-3"><label for="editLastDewormingNotes" class="form-label">Deworming Notes</label><input type="text" class="form-control" id="editLastDewormingNotes"></div><hr class="my-2"><div class="row"><div class="col-md-6 mb-3"><label for="editLastVaccinationDate" class="form-label">Last Vaccination</label><input type="date" class="form-control" id="editLastVaccinationDate"></div><div class="col-md-6 mb-3"><label for="editManualVaccinationDueDate" class="form-label"><strong>Next Vaccination Due</strong></label><input type="date" class="form-control" id="editManualVaccinationDueDate" aria-describedby="manualVaxHelp"></div></div><div id="manualVaxHelp" class="form-text mb-3">Set a specific next due date. Overrides automatic calculation (12 months).</div><div class="mb-3"><label for="editLastVaccinationNotes" class="form-label">Vaccination Notes</label><input type="text" class="form-control" id="editLastVaccinationNotes"></div></div><div class="modal-footer"><button type="button" class="btn-close" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Save Changes</button></div></form></div></div>
+        <div class="modal fade" id="editSheepModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content needs-navigation" id="editSheepForm"><div class="modal-header"><h5 class="modal-title">Edit Sheep Health Record</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">
+            <input type="hidden" id="editRecordId">
+            <div class="mb-3"><label for="editSheepId" class="form-label">Sheep ID</label><input type="text" class="form-control" id="editSheepId" required></div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="editGender" class="form-label">Gender</label>
+                    <select class="form-select" id="editGender" required>
+                        <option value="Female">Female</option>
+                        <option value="Male">Male</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3"><label for="editBreed" class="form-label">Breed</label><input type="text" class="form-control" id="editBreed" placeholder="e.g., Merino, Dorper"></div>
+            </div>
+            <div class="mb-3"><label for="editBuyingPrice" class="form-label">Buying Price (₹)</label><input type="number" step="0.01" class="form-control" id="editBuyingPrice"></div><div class="mb-3"><label for="editHealthStatus" class="form-label">Health Status</label><select class="form-select" id="editHealthStatus" required><option value="Healthy">Healthy</option><option value="Recovering">Recovering</option><option value="Corentin">Corentin</option><option value="Under Treatment">Under Treatment</option><option value="Pregnant">Pregnant</option><option value="Deceased">Deceased</option></select></div><div class="mb-3"><label for="editDateRecorded" class="form-label">Date Recorded</label><input type="date" class="form-control" id="editDateRecorded" required></div><div class="mb-3"><label for="editNotes" class="form-label">Initial Notes</label><textarea class="form-control" id="editNotes" rows="4"></textarea></div><hr><h6 class="text-muted">Preventative Care Dates (Manual Override)</h6><div class="row"><div class="col-md-6 mb-3"><label for="editLastDewormingDate" class="form-label">Last Deworming</label><input type="date" class="form-control" id="editLastDewormingDate"></div></div><div class="mb-3"><label for="editLastDewormingNotes" class="form-label">Deworming Notes</label><input type="text" class="form-control" id="editLastDewormingNotes"></div><hr class="my-2"><div class="row"><div class="col-md-6 mb-3"><label for="editLastVaccinationDate" class="form-label">Last Vaccination</label><input type="date" class="form-control" id="editLastVaccinationDate"></div><div class="col-md-6 mb-3"><label for="editManualVaccinationDueDate" class="form-label"><strong>Next Vaccination Due</strong></label><input type="date" class="form-control" id="editManualVaccinationDueDate" aria-describedby="manualVaxHelp"></div></div><div id="manualVaxHelp" class="form-text mb-3">Set a specific next due date. Overrides automatic calculation (12 months).</div><div class="mb-3"><label for="editLastVaccinationNotes" class="form-label">Vaccination Notes</label><input type="text" class="form-control" id="editLastVaccinationNotes"></div></div><div class="modal-footer"><button type="button" class="btn-close" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Save Changes</button></div></form></div></div>
 
         <!-- Sale Modal -->
-        <div class="modal fade" id="saleSheepModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" id="saleSheepForm"><div class="modal-header"><h5 class="modal-title">Sale Sheep Record</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="saleRecordId"><div class="mb-3"><label for="saleDate" class="form-label">Date of Sale</label><input type="date" class="form-control" id="saleDate" required></div><div class="mb-3"><label for="salePrice" class="form-label">Sale Price</label><input type="number" step="0.01" class="form-control" id="salePrice" required></div><div class="mb-3"><label for="saleBuyer" class="form-label">Buyer Name</label><input type="text" class="form-control" id="saleBuyer"></div><div class="mb-3"><label for="saleNotes" class="form-label">Sale Notes</label><textarea class="form-control" id="saleNotes" rows="3"></textarea></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-success">Confirm Sale</button></div></form></div></div>
+        <div class="modal fade" id="saleSheepModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content needs-navigation" id="saleSheepForm"><div class="modal-header"><h5 class="modal-title">Sale Sheep Record</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="saleRecordId"><div class="mb-3"><label for="saleDate" class="form-label">Date of Sale</label><input type="date" class="form-control" id="saleDate" required></div><div class="mb-3"><label for="salePrice" class="form-label">Sale Price</label><input type="number" step="0.01" class="form-control" id="salePrice" required></div><div class="mb-3"><label for="saleBuyer" class="form-label">Buyer Name</label><input type="text" class="form-control" id="saleBuyer"></div><div class="mb-3"><label for="saleNotes" class="form-label">Sale Notes</label><textarea class="form-control" id="saleNotes" rows="4"></textarea></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-success">Confirm Sale</button></div></form></div></div>
         
         <!-- Manage Treatments Modal -->
-        <div class="modal fade" id="treatmentLogModal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Treatment Log for Sheep: <span id="modalSheepId"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><h6>Add/Edit Treatment Entry</h6><form id="addTreatmentForm" class="p-3 mb-4 bg-light rounded border"><input type="hidden" id="currentSheepRecordId"><input type="hidden" id="treatmentEntryId"><div class="row"><div class="col-md-6 mb-3"><label for="treatmentDate" class="form-label">Treatment Date</label><input type="date" class="form-control" id="treatmentDate" required></div><div class="col-md-6 mb-3"><label for="treatmentType" class="form-label">Treatment Type</label><select id="treatmentType" class="form-select"><option value="General">General Treatment</option><option value="Deworming">Deworming</option><option value="Vaccination">Vaccination</option></select></div></div><div class="row"><div class="col-md-4 mb-3"><label for="medication" class="form-label">Medication/Treatment</label><input type="text" class="form-control" id="medication" placeholder="e.g., Penicillin, Ivermectin"></div><div class="col-md-4 mb-3"><label for="dosage" class="form-label">Dosage</label><input type="text" class="form-control" id="dosage" placeholder="e.g., 5ml, N/A"></div><div class="col-md-4 mb-3"><label for="treatmentWeight" class="form-label">Weight (kg)</label><input type="number" step="0.1" class="form-control" id="treatmentWeight" placeholder="Log weight with treatment" aria-describedby="weightHelp"><div id="weightHelp" class="form-text">This will also create a separate entry in the Weight Tracking section.</div></div></div><div class="mb-3"><label for="symptoms" class="form-label">Symptoms Observed</label><textarea class="form-control" id="symptoms" rows="2" placeholder="e.g., Limping, coughing, fever"></textarea></div><div class="row"><div class="col-md-6 mb-3"><label for="followUpDate" class="form-label">Follow-up Date (for specific re-checks)</label><input type="date" class="form-control" id="followUpDate"></div></div><div class="mb-3"><label for="treatmentNotes" class="form-label">Notes</label><textarea class="form-control" id="treatmentNotes" rows="2" aria-describedby="treatmentNotesHelp"></textarea><div id="treatmentNotesHelp" class="form-text">For Deworming/Vaccination, these notes (e.g., brand name) will appear on the Health Schedule.</div></div><button type="submit" class="btn btn-success">Save Entry</button><button type="button" class="btn btn-secondary" onclick="resetTreatmentForm()">Clear Form</button></form><h6>Treatment History</h6><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Date</th><th>Symptoms</th><th>Medication</th><th>Dosage</th><th>Actions</th></tr></thead><tbody id="treatmentLogTbody"></tbody></table></div></div></div></div></div>
+        <div class="modal fade" id="treatmentLogModal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Treatment Log for Sheep: <span id="modalSheepId"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><h6>Add/Edit Treatment Entry</h6><form id="addTreatmentForm" class="p-3 mb-4 bg-light rounded border needs-navigation"><input type="hidden" id="currentSheepRecordId"><input type="hidden" id="treatmentEntryId"><div class="row"><div class="col-md-6 mb-3"><label for="treatmentDate" class="form-label">Treatment Date</label><input type="date" class="form-control" id="treatmentDate" required></div><div class="col-md-6 mb-3"><label for="treatmentType" class="form-label">Treatment Type</label><select id="treatmentType" class="form-select"><option value="General">General Treatment</option><option value="Deworming">Deworming</option><option value="Vaccination">Vaccination</option></select></div></div><div class="row"><div class="col-md-4 mb-3"><label for="medication" class="form-label">Medication/Treatment</label><input type="text" class="form-control" id="medication" placeholder="e.g., Penicillin, Ivermectin"></div><div class="col-md-4 mb-3"><label for="dosage" class="form-label">Dosage</label><input type="text" class="form-control" id="dosage" placeholder="e.g., 5ml, N/A"></div><div class="col-md-4 mb-3"><label for="treatmentWeight" class="form-label">Weight (kg)</label><input type="number" step="0.1" class="form-control" id="treatmentWeight" placeholder="Log weight with treatment" aria-describedby="weightHelp"><div id="weightHelp" class="form-text">This will also create a separate entry in the Weight Tracking section.</div></div></div><div class="mb-3"><label for="symptoms" class="form-label">Symptoms Observed</label><textarea class="form-control" id="symptoms" rows="2" placeholder="e.g., Limping, coughing, fever"></textarea></div><div class="row"><div class="col-md-6 mb-3"><label for="followUpDate" class="form-label">Follow-up Date (for specific re-checks)</label><input type="date" class="form-control" id="followUpDate"></div></div><div class="mb-3"><label for="treatmentNotes" class="form-label">Notes</label><textarea class="form-control" id="treatmentNotes" rows="2" aria-describedby="treatmentNotesHelp"></textarea><div id="treatmentNotesHelp" class="form-text">For Deworming/Vaccination, these notes (e.g., brand name) will appear on the Health Schedule.</div></div><button type="submit" class="btn btn-success">Save Entry</button><button type="button" class="btn btn-secondary" onclick="resetTreatmentForm()">Clear Form</button></form><h6>Treatment History</h6><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Date</th><th>Symptoms</th><th>Medication</th><th>Dosage</th><th>Notes</th><th>Actions</th></tr></thead><tbody id="treatmentLogTbody"></tbody></table></div></div></div></div></div>
 
         <!-- Weight Entry Modal -->
-        <div class="modal fade" id="weightEntryModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" id="weightEntryForm"><div class="modal-header"><h5 class="modal-title" id="weightModalTitle">Add Weight Entry</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="weightRecordId"><input type="hidden" id="weightEntryId"><input type="hidden" id="weightEntrySource"><div class="mb-3"><label for="weightEntryDate" class="form-label">Date</label><input type="date" class="form-control" id="weightEntryDate" required></div><div class="mb-3"><label for="weightEntryValue" class="form-label">Weight (kg)</label><input type="number" step="0.1" class="form-control" id="weightEntryValue" required></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Save Weight</button></div></form></div></div>
+        <div class="modal fade" id="weightEntryModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content needs-navigation" id="weightEntryForm"><div class="modal-header"><h5 class="modal-title" id="weightModalTitle">Add Weight Entry</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="weightRecordId"><input type="hidden" id="weightEntryId"><input type="hidden" id="weightEntrySource"><div class="mb-3"><label for="weightEntryDate" class="form-label">Date</label><input type="date" class="form-control" id="weightEntryDate" required></div><div class="mb-3"><label for="weightEntryValue" class="form-label">Weight (kg)</label><input type="number" step="0.1" class="form-control" id="weightEntryValue" required></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Save Weight</button></div></form></div></div>
 
         <!-- Batch Treatment Modal -->
-        <div class="modal fade" id="batchTreatmentModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" id="batchTreatmentForm"><div class="modal-header"><h5 class="modal-title">Log Batch Treatment</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><p>Applying treatment to <strong id="batchCount">0</strong> selected sheep.</p><div class="mb-3"><label for="batchTreatmentType" class="form-label">Treatment Type</label><select id="batchTreatmentType" class="form-select" required><option value="" disabled selected>Select a type...</option><option value="Deworming">Deworming</option><option value="Vaccination">Vaccination</option></select></div><div class="mb-3"><label for="batchTreatmentDate" class="form-label">Treatment Date</label><input type="date" class="form-control" id="batchTreatmentDate" required></div><div class="mb-3"><label for="batchMedication" class="form-label">Medication/Brand</label><input type="text" class="form-control" id="batchMedication" placeholder="e.g., Ivermectin, Cydectin"></div><div class="mb-3"><label for="batchDosage" class="form-label">Dosage</label><input type="text" class="form-control" id="batchDosage" placeholder="e.g., 5ml"></div><div class="mb-3"><label for="batchTreatmentNotes" class="form-label">Notes</label><textarea class="form-control" id="batchTreatmentNotes" rows="2"></textarea></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-success">Apply to All</button></div></form></div></div>
+        <div class="modal fade" id="batchTreatmentModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content needs-navigation" id="batchTreatmentForm"><div class="modal-header"><h5 class="modal-title">Log Batch Treatment</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><p>Applying treatment to <strong id="batchCount">0</strong> selected sheep.</p><div class="mb-3"><label for="batchTreatmentType" class="form-label">Treatment Type</label><select id="batchTreatmentType" class="form-select" required><option value="" disabled selected>Select a type...</option><option value="Deworming">Deworming</option><option value="Vaccination">Vaccination</option></select></div><div class="mb-3"><label for="batchTreatmentDate" class="form-label">Treatment Date</label><input type="date" class="form-control" id="batchTreatmentDate" required></div><div class="mb-3"><label for="batchMedication" class="form-label">Medication/Brand</label><input type="text" class="form-control" id="batchMedication" placeholder="e.g., Ivermectin, Cydectin"></div><div class="mb-3"><label for="batchDosage" class="form-label">Dosage</label><input type="text" class="form-control" id="batchDosage" placeholder="e.g., 5ml"></div><div class="mb-3"><label for="batchTreatmentNotes" class="form-label">Notes</label><textarea class="form-control" id="batchTreatmentNotes" rows="2"></textarea></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-success">Apply to All</button></div></form></div></div>
     </div>
 
     <!-- Third-party Libraries -->
