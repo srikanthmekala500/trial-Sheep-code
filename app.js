@@ -7,6 +7,16 @@ import { getDatabase, ref, onValue, off, push, update, remove, child, query } fr
 console.log("app.js loaded successfully."); // Diagnostic log to confirm file version
 // --- CONFIGURATION ---
 
+// --- GLOBAL ERROR HANDLING ---
+window.onerror = function(message, source, lineno, colno, error) {
+    console.error("A global error was caught:", { message, source, lineno, colno, error });
+    // This is a safety net. It prevents the app from crashing with a blank screen.
+    // For a better user experience, you could show a custom overlay instead of an alert.
+    alert('An unexpected error occurred, which may prevent the app from working correctly. Please refresh the page. Check the developer console for technical details.');
+    // Returning true prevents the browser's default error handler from running.
+    return true;
+};
+
 
 const firebaseConfig = { apiKey: "AIzaSyBdiEUorFPkiZAya84Xzx17id82nB77Zg4", authDomain: "sheep-1b6a7.firebaseapp.com", databaseURL: "https://sheep-1b6a7-default-rtdb.firebaseio.com", projectId: "sheep-1b6a7", storageBucket: "sheep-1b6a7.firebasestorage.app", messagingSenderId: "243565434909", appId: "1:243565434909:web:25312f89033e3fd0d54ef4" };
 
@@ -19,6 +29,7 @@ const auth = getAuth(app);
 let masterAllRecords = [];
 let masterSoldRecords = [];
 let masterArchivedRecords = [];
+let masterFeedInventory = [];
 let allRecords = [];
 let soldRecords = [];
 let archivedRecords = [];
@@ -28,7 +39,7 @@ let state = {
     currentGrowthFilters: { gender: 'all', breed: 'all', searchTerm: '' }
 };
 
-let weightChart, profileWeightChart, profitLossChart;
+let weightChart, profileWeightChart, profitLossChart, financialsChart, expenseBreakdownChart;
 let currentWeeklyFilter = 'all';
 let currentScheduleFilter = 'all';
 let currentSoldFilter = 'all';
@@ -41,6 +52,20 @@ const mainApp = document.getElementById('mainApp');
 const authSection = document.getElementById('authSection');
 
 // --- CORE APPLICATION LOGIC ---
+
+/**
+ * Executes a function within a try-catch block to prevent a single error
+ * from halting the entire application initialization.
+ * @param {string} description - A description of the action for logging.
+ * @param {Function} fn - The function to execute.
+ */
+function runSafely(description, fn) {
+    try {
+        fn();
+    } catch (error) {
+        console.error(`Initialization Error in '${description}':`, error);
+    }
+}
 
 /**
  * Main entry point. Sets up auth listener and initializes the app
@@ -115,7 +140,7 @@ function handleLogin(e) {
  * @param {string} sectionName - The name of the section to show.
  */
 function showSection(sectionName) {
-    ['home', 'records', 'corentin', 'overdue', 'treatment', 'pregnant', 'saled', 'archived', 'schedule', 'weekly', 'weight', 'profile', 'growth'].forEach(id => {
+    ['home', 'records', 'corentin', 'overdue', 'treatment', 'pregnant', 'saled', 'archived', 'schedule', 'weekly', 'weight', 'profile', 'growth', 'feed', 'financials'].forEach(id => {
         document.getElementById(id + 'Section').classList.add('hidden');
     });
     document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
@@ -125,6 +150,9 @@ function showSection(sectionName) {
 
     if (sectionName === 'growth') {
         displayGrowthAnalytics();
+    }
+    if (sectionName === 'financials') {
+        updateFinancialsDashboard();
     }
     const sidebar = document.querySelector('.dashboard-sidebar');
     if (sidebar.classList.contains('visible')) {
@@ -218,6 +246,7 @@ function applyFiltersAndRender() {
     updateProfileView();
     updateWeightTrackingView();
     updateScheduleView();
+    updateFinancialsDashboard();
     updateWeeklyTrackingView();
 }
 
@@ -275,6 +304,7 @@ function fetchAllRecords() {
         populateGlobalFilters();
         applyFiltersAndRender();
         checkTreatmentFollowUps();
+        fetchFeedInventory(); // Fetch feed data after main records
         checkPreventativeCareReminders();
     }, (error) => {
         console.error("Fatal Error: Could not fetch main sheep records.", error);
@@ -369,6 +399,46 @@ function fetchArchivedRecords() {
     });
 }
 
+function fetchFeedInventory() {
+    const feedRef = ref(db, "feedInventory");
+    onValue(feedRef, snapshot => {
+        masterFeedInventory = [];
+        if (snapshot.exists()) {
+            snapshot.forEach(child => {
+                masterFeedInventory.push({ id: child.key, ...child.val() });
+            });
+        }
+        renderFeedInventoryTable();
+    }, error => {
+        console.error("Error fetching feed inventory:", error);
+        updateElement('feedInventoryTableBody', `<tr><td colspan="4" class="text-center text-danger">Error loading feed inventory.</td></tr>`, true);
+    });
+}
+
+function renderFeedInventoryTable() {
+    const tableBody = document.getElementById('feedInventoryTableBody');
+    if (!tableBody) return;
+
+    // Sort by name for consistent display
+    const sortedInventory = [...masterFeedInventory].sort((a, b) => a.name.localeCompare(b.name));
+
+    if (sortedInventory.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="4" class="text-center p-4 text-muted">No feed items in inventory. Use the form to add one.</td></tr>`;
+        return;
+    }
+
+    const rowsHtml = sortedInventory.map(item => `
+        <tr>
+            <td class="align-middle"><strong>${item.name}</strong></td>
+            <td class="align-middle">₹${(item.pricePerKg || 0).toFixed(2)}</td>
+            <td class="align-middle">${(item.quantityOnHand || 0).toFixed(2)} kg</td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-outline-danger js-delete-feed-item" data-feed-id="${item.id}" data-feed-name="${item.name}" title="Delete Item"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>`).join('');
+    tableBody.innerHTML = rowsHtml;
+}
+
 // --- ROW RENDERING FUNCTIONS ---
 
 /**
@@ -452,6 +522,7 @@ function renderSoldRow(record) {
             </td>
             <td><span class="badge fs-6 ${getBootstrapStatusClass(record.healthStatus)}">${record.healthStatus}</span></td>
             <td class="text-center align-middle">
+                <button class="btn btn-sm btn-outline-primary js-edit-sold-record" data-record-id="${record.id}" title="Edit Sale Details"><i class="fas fa-edit"></i></button>
                 <button class="btn btn-sm btn-outline-danger js-delete-sold-record" data-record-id="${record.id}" data-sheep-id="${record.sheepId}" title="Permanently Delete Sale Record"><i class="fas fa-trash"></i></button>
             </td>
         </tr>
@@ -688,8 +759,8 @@ function updateSoldRecordsView(filter = currentSoldFilter) {
 
     const tableBody = document.getElementById('sheepSaledTableBody');
 
-    // Start with the master list of sold records, unaffected by global filters
-    const recordsToProcess = [...masterSoldRecords];
+    // Start with the globally-filtered list of sold records.
+    const recordsToProcess = [...soldRecords];
 
     // Get local month and year filters for the sold records card
     const localMonthFilter = document.getElementById('soldMonthFilter')?.value || 'all';
@@ -891,7 +962,7 @@ function renderScheduleRow(record) {
         // A more elegant display for when no data is available
         if (status.status === 'Not Set') {
             return `
-                <td>
+                <td class="align-middle">
                     <div>${renderScheduleStatusBadge(status)}</div>
                     <div class="text-body-secondary mt-1 fst-italic">
                         No care schedule has been recorded for this item.
@@ -913,7 +984,7 @@ function renderScheduleRow(record) {
         }
 
         return `
-            <td>
+            <td class="align-middle">
                 <div>${renderScheduleStatusBadge(status)}</div>
                 <div class="mt-1">
                     <div class="text-dark-emphasis">${dueTextHtml}</div>
@@ -926,10 +997,10 @@ function renderScheduleRow(record) {
 
     return `
         <tr class="${rowClass}" data-sheep-id="${record.id}">
-            <td class="text-center">
+            <td class="text-center align-middle">
                 <input class="form-check-input schedule-checkbox" type="checkbox" value="${record.id}" data-id="${record.id}">
             </td>
-            <td>
+            <td class="align-middle">
                 <a href="#" class="fw-bold profile-link" data-sheep-id="${record.id}" title="View full profile for ${record.sheepId}">${record.sheepId}</a>
                 <div class="small text-muted">${record.breed || 'N/A'}</div>
             </td>
@@ -937,15 +1008,10 @@ function renderScheduleRow(record) {
             ${renderCareCell(dewormingStatus, record.lastDewormingNotes, record.lastDewormingDate)}
             ${renderCareCell(vaccinationStatus, record.lastVaccinationNotes, record.lastVaccinationDate)}
 
-            <td class="text-center">
-                <div class="btn-group-vertical btn-group-sm" role="group">
-                    <button type="button" class="btn btn-outline-primary js-manage-treatment" data-record-id="${record.id}" data-sheep-id="${record.sheepId}" title="Log New Care">
-                        <i class="fas fa-syringe fa-fw me-1"></i> Log Care
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary js-edit-record" data-record-id="${record.id}" title="Edit Sheep Details">
-                        <i class="fas fa-edit fa-fw me-1"></i> Edit
-                    </button>
-                </div>
+            <td class="text-center align-middle">
+                <button type="button" class="btn btn-sm btn-outline-primary js-manage-treatment" data-record-id="${record.id}" data-sheep-id="${record.sheepId}" title="Log New Care">
+                    <i class="fas fa-syringe fa-fw me-1"></i> Log Care
+                </button>
             </td>
         </tr>
     `;
@@ -989,7 +1055,7 @@ function checkTreatmentFollowUps() {
 
     const listEl = document.getElementById('notification-list');
     const badgeEl = document.getElementById('notification-badge');
-    renderNotificationList(notifications, listEl, badgeEl, 'No pending treatment follow-ups.');
+    renderNotificationList(notifications, listEl, badgeEl, 'No pending treatment follow-ups.', 'treatment');
 }
 
 function checkPreventativeCareReminders() {
@@ -1055,10 +1121,10 @@ function checkPreventativeCareReminders() {
 
     const listEl = document.getElementById('schedule-notification-list');
     const badgeEl = document.getElementById('schedule-notification-badge');
-    renderNotificationList(reminders, listEl, badgeEl, 'No upcoming preventative care.');
+    renderNotificationList(reminders, listEl, badgeEl, 'No upcoming preventative care.', 'schedule');
 }
 
-function renderNotificationList(notifications, listEl, badgeEl, emptyText) {
+function renderNotificationList(notifications, listEl, badgeEl, emptyText, notificationType = 'treatment') {
     listEl.innerHTML = '';
 
     if (notifications.length === 0) {
@@ -1081,7 +1147,7 @@ function renderNotificationList(notifications, listEl, badgeEl, emptyText) {
         else if (n.status === 'Due Today') iconClass = 'fas fa-calendar-day text-warning';
         else if (n.status === 'Upcoming') iconClass = 'fas fa-calendar-alt text-info';
 
-        listEl.innerHTML += `<li><a href="#" class="dropdown-item notification-item" data-record-id="${n.recordId}"><div class="icon"><i class="${iconClass}"></i></div><div class="content"><strong>Sheep ID: ${n.sheepId}</strong><div class="small text-muted">${n.message}</div></div></a></li>`;
+        listEl.innerHTML += `<li><a href="#" class="dropdown-item notification-item" data-record-id="${n.recordId}" data-notification-type="${notificationType}"><div class="icon"><i class="${iconClass}"></i></div><div class="content"><strong>Sheep ID: ${n.sheepId}</strong><div class="small text-muted">${n.message}</div></div></a></li>`;
     });
 }
 
@@ -1858,6 +1924,159 @@ function renderGrowthAnalyticsTable(data) {
     }
 }
 
+// --- FINANCIALS DASHBOARD ---
+function updateFinancialsDashboard() {
+    // Calculate metrics based on currently filtered records
+    const investment = allRecords.reduce((sum, r) => sum + (parseFloat(r.buyingPrice) || 0), 0);
+    const revenue = soldRecords.reduce((sum, r) => sum + (parseFloat(r.salePrice) || 0), 0);
+    
+    let expenses = 0;
+    const allFilteredRecords = [...allRecords, ...soldRecords];
+    allFilteredRecords.forEach(record => {
+        if (record.treatments) {
+            Object.values(record.treatments).forEach(t => {
+                if (t.cost) {
+                    expenses += (parseFloat(t.cost) || 0);
+                }
+            });
+        }
+    });
+
+    const profitLoss = revenue - expenses - investment;
+
+    updateElement('financialsInvestment', `₹${investment.toFixed(2)}`);
+    updateElement('financialsExpenses', `₹${expenses.toFixed(2)}`);
+    updateElement('financialsRevenue', `₹${revenue.toFixed(2)}`);
+    updateElement('financialsProfitLoss', `₹${profitLoss.toFixed(2)}`);
+    document.getElementById('financialsProfitLoss').className = `h5 mb-0 font-weight-bold ${profitLoss >= 0 ? 'text-success' : 'text-danger'}`;
+
+    renderFinancialsChart();
+    renderExpenseBreakdownChart();
+}
+
+function renderFinancialsChart() {
+    const monthlyData = {};
+
+    // Aggregate expenses by month
+    [...allRecords, ...soldRecords].forEach(record => {
+        if (record.treatments) {
+            Object.values(record.treatments).forEach(t => {
+                if (t.cost && t.treatmentDate) {
+                    const month = t.treatmentDate.substring(0, 7); // YYYY-MM
+                    if (!monthlyData[month]) monthlyData[month] = { revenue: 0, expenses: 0 };
+                    monthlyData[month].expenses += (parseFloat(t.cost) || 0);
+                }
+            });
+        }
+    });
+
+    // Aggregate revenue by month
+    soldRecords.forEach(record => {
+        if (record.salePrice && record.saleDate) {
+            const month = record.saleDate.substring(0, 7); // YYYY-MM
+            if (!monthlyData[month]) monthlyData[month] = { revenue: 0, expenses: 0 };
+            monthlyData[month].revenue += (parseFloat(record.salePrice) || 0);
+        }
+    });
+
+    const sortedMonths = Object.keys(monthlyData).sort();
+    const noDataEl = document.getElementById('noFinancialsChartData');
+    const chartEl = document.getElementById('financialsChart');
+
+    if (sortedMonths.length < 1) {
+        noDataEl.style.display = 'block';
+        chartEl.style.display = 'none';
+        return;
+    }
+    noDataEl.style.display = 'none';
+    chartEl.style.display = 'block';
+
+    const labels = sortedMonths.map(m => new Date(m + '-02').toLocaleString('default', { month: 'short', year: 'numeric' }));
+    const revenueData = sortedMonths.map(m => monthlyData[m].revenue);
+    const expensesData = sortedMonths.map(m => monthlyData[m].expenses);
+
+    const chartData = {
+        labels: labels,
+        datasets: [
+            { label: 'Revenue', data: revenueData, backgroundColor: 'rgba(40, 167, 69, 0.7)', borderColor: 'rgba(40, 167, 69, 1)', borderWidth: 1, type: 'bar' },
+            { label: 'Expenses', data: expensesData, backgroundColor: 'rgba(220, 53, 69, 0.7)', borderColor: 'rgba(220, 53, 69, 1)', borderWidth: 1, type: 'bar' }
+        ]
+    };
+
+    if (financialsChart) financialsChart.destroy();
+    financialsChart = new Chart(chartEl.getContext('2d'), {
+        type: 'bar',
+        data: chartData,
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { callback: value => `₹${value}` } } } }
+    });
+}
+
+function renderExpenseBreakdownChart() {
+    const expenseCategories = {
+        'Feed': 0,
+        'Deworming': 0,
+        'Vaccination': 0,
+        'Other': 0 // For General, Other, etc.
+    };
+
+    const allFilteredRecords = [...allRecords, ...soldRecords];
+    allFilteredRecords.forEach(record => {
+        if (record.treatments) {
+            Object.values(record.treatments).forEach(t => {
+                const cost = parseFloat(t.cost) || 0;
+                if (cost > 0) {
+                    switch (t.treatmentType) {
+                        case 'Feed':
+                            expenseCategories['Feed'] += cost;
+                            break;
+                        case 'Deworming':
+                            expenseCategories['Deworming'] += cost;
+                            break;
+                        case 'Vaccination':
+                            expenseCategories['Vaccination'] += cost;
+                            break;
+                        default: // General, Other, etc.
+                            expenseCategories['Other'] += cost;
+                            break;
+                    }
+                }
+            });
+        }
+    });
+
+    const chartEl = document.getElementById('expenseBreakdownChart');
+    const noDataEl = document.getElementById('noExpenseChartData');
+    if (!chartEl || !noDataEl) return;
+
+    const labels = Object.keys(expenseCategories);
+    const data = Object.values(expenseCategories);
+    const totalExpenses = data.reduce((sum, val) => sum + val, 0);
+
+    if (totalExpenses === 0) {
+        chartEl.style.display = 'none';
+        noDataEl.style.display = 'block';
+        if (expenseBreakdownChart) { expenseBreakdownChart.destroy(); expenseBreakdownChart = null; }
+        return;
+    }
+
+    chartEl.style.display = 'block';
+    noDataEl.style.display = 'none';
+
+    if (expenseBreakdownChart) expenseBreakdownChart.destroy();
+
+    expenseBreakdownChart = new Chart(chartEl.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels: labels.filter((_, i) => data[i] > 0),
+            datasets: [{
+                data: data.filter(d => d > 0),
+                backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b'],
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '80%', plugins: { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { label: context => `${context.label}: ₹${context.raw.toFixed(2)} (${((context.raw / totalExpenses) * 100).toFixed(1)}%)` } } } }
+    });
+}
+
 // --- FORM & MODAL HANDLERS ---
 
 function handleAddRecord(e) {
@@ -1908,17 +2127,36 @@ function openEditModal(recordId) {
     document.getElementById('editHealthStatus').value = record.healthStatus;
     document.getElementById('editDateRecorded').value = record.dateRecorded;
     document.getElementById('editNotes').value = record.notes || '';
-    document.getElementById('editLastDewormingDate').value = record.lastDewormingDate || '';
-    document.getElementById('editLastDewormingNotes').value = record.lastDewormingNotes || '';
-    document.getElementById('editLastVaccinationDate').value = record.lastVaccinationDate || '';
-    document.getElementById('editManualVaccinationDueDate').value = record.manualVaccinationDueDate || '';
-    document.getElementById('editLastVaccinationNotes').value = record.lastVaccinationNotes || '';
+
+    // Safely populate optional preventative care fields, preventing errors if they don't exist in the modal.
+    const dewormDateEl = document.getElementById('editLastDewormingDate');
+    if (dewormDateEl) dewormDateEl.value = record.lastDewormingDate || '';
+
+    const dewormNotesEl = document.getElementById('editLastDewormingNotes');
+    if (dewormNotesEl) dewormNotesEl.value = record.lastDewormingNotes || '';
+
+    const vaxDateEl = document.getElementById('editLastVaccinationDate');
+    if (vaxDateEl) vaxDateEl.value = record.lastVaccinationDate || '';
+
+    const manualVaxDateEl = document.getElementById('editManualVaccinationDueDate');
+    if (manualVaxDateEl) manualVaxDateEl.value = record.manualVaccinationDueDate || '';
+
+    const vaxNotesEl = document.getElementById('editLastVaccinationNotes');
+    if (vaxNotesEl) vaxNotesEl.value = record.lastVaccinationNotes || '';
+
     editSheepModal.show();
 }
 
 function handleUpdateRecord(e) {
     e.preventDefault();
     const recordId = document.getElementById('editRecordId').value;
+
+    // Helper to safely get value from a potentially missing element.
+    const getOptionalInputValue = (id) => {
+        const el = document.getElementById(id);
+        return el ? el.value : null;
+    };
+
     const updatedData = {
         sheepId: document.getElementById('editSheepId').value.trim(),
         gender: document.getElementById('editGender').value,
@@ -1927,11 +2165,11 @@ function handleUpdateRecord(e) {
         healthStatus: document.getElementById('editHealthStatus').value,
         dateRecorded: document.getElementById('editDateRecorded').value,
         notes: document.getElementById('editNotes').value.trim(),
-        lastDewormingDate: document.getElementById('editLastDewormingDate').value || null,
-        lastDewormingNotes: document.getElementById('editLastDewormingNotes').value.trim() || null,
-        lastVaccinationDate: document.getElementById('editLastVaccinationDate').value || null,
-        manualVaccinationDueDate: document.getElementById('editManualVaccinationDueDate').value || null,
-        lastVaccinationNotes: document.getElementById('editLastVaccinationNotes').value.trim() || null,
+        lastDewormingDate: getOptionalInputValue('editLastDewormingDate') || null,
+        lastDewormingNotes: (getOptionalInputValue('editLastDewormingNotes') || '').trim() || null,
+        lastVaccinationDate: getOptionalInputValue('editLastVaccinationDate') || null,
+        manualVaccinationDueDate: getOptionalInputValue('editManualVaccinationDueDate') || null,
+        lastVaccinationNotes: (getOptionalInputValue('editLastVaccinationNotes') || '').trim() || null,
     };
 
     if (updatedData.healthStatus === 'Deceased') {
@@ -1972,6 +2210,12 @@ function archiveRecord(recordId) {
         push(ref(db, 'sheepArchivedRecords'), archivedRecord).then(() => {
             remove(ref(db, `sheepHealthRecords/${recordId}`));
         });
+    }
+}
+
+function deleteFeedItem(feedId, feedName) {
+    if (confirm(`Are you sure you want to delete "${feedName}" from your inventory? This action cannot be undone.`)) {
+        remove(ref(db, `feedInventory/${feedId}`));
     }
 }
 
@@ -2020,6 +2264,15 @@ function openTreatmentLog(recordId, sheepId) {
     document.getElementById('modalSheepId').textContent = sheepId;
     document.getElementById('currentSheepRecordId').value = recordId;
     resetTreatmentForm();
+    toggleTreatmentFormForFeed(document.getElementById('treatmentType').value);
+
+    // Populate the feed dropdown
+    const feedSelect = document.getElementById('treatmentFeedType');
+    if (masterFeedInventory.length > 0) {
+        feedSelect.innerHTML = masterFeedInventory.map(f => `<option value="${f.id}" data-price="${f.pricePerKg}">${f.name} (${f.quantityOnHand.toFixed(1)} kg left)</option>`).join('');
+    } else {
+        feedSelect.innerHTML = '<option value="" disabled>No feed items in inventory</option>';
+    }
 
     // Pre-fill symptoms from the latest treatment if available
     const record = allRecords.find(r => r.id === recordId);
@@ -2073,23 +2326,35 @@ function openTreatmentLog(recordId, sheepId) {
 
 function editTreatmentEntry(recordId, entryId) {
     const entryRef = ref(db, `sheepHealthRecords/${recordId}/treatments/${entryId}`);
-    onValue(entryRef, snapshot => {
+    onValue(entryRef, (snapshot) => {
         const entry = snapshot.val();
         if (!entry) {
             alert('Error: The treatment entry could not be found. It may have been deleted.');
             resetTreatmentForm();
             return;
         }
+        const treatmentType = entry.treatmentType || 'General';
+        toggleTreatmentFormForFeed(treatmentType); // Update UI first
+
         document.getElementById('treatmentEntryId').value = entryId;
-        document.getElementById('treatmentType').value = entry.treatmentType || 'General';
+        document.getElementById('treatmentType').value = treatmentType;
         document.getElementById('treatmentDate').value = entry.treatmentDate;
         document.getElementById('symptoms').value = entry.symptoms || '';
-        document.getElementById('medication').value = entry.medication || '';
-        document.getElementById('dosage').value = entry.dosage || '';
         document.getElementById('followUpDate').value = entry.followUpDate || '';
-        document.getElementById('treatmentWeight').value = '';
+        document.getElementById('treatmentWeight').value = ''; // Always clear this
         document.getElementById('treatmentCost').value = entry.cost || '';
         document.getElementById('treatmentNotes').value = entry.treatmentNotes || '';
+
+        if (treatmentType === 'Feed') {
+            // Find the feed item in the dropdown and select it
+            const feedSelect = document.getElementById('treatmentFeedType');
+            const feedOption = Array.from(feedSelect.options).find(opt => opt.text.startsWith(entry.medication));
+            if (feedOption) feedSelect.value = feedOption.value;
+            document.getElementById('dosage').value = entry.dosage || '';
+        } else {
+            document.getElementById('medication').value = entry.medication || '';
+            document.getElementById('dosageText').value = entry.dosage || '';
+        }
     }, { onlyOnce: true });
 }
 
@@ -2109,6 +2374,7 @@ function handleSaveTreatment(e) {
     const entryId = document.getElementById('treatmentEntryId').value;
     const treatmentType = document.getElementById('treatmentType').value;
     const treatmentDate = document.getElementById('treatmentDate').value;
+    const dosage = treatmentType === 'Feed' ? parseFloat(document.getElementById('dosage').value) : document.getElementById('dosageText').value;
     const treatmentWeight = parseFloat(document.getElementById('treatmentWeight').value);
     const costEl = document.getElementById('treatmentCost');
 
@@ -2116,39 +2382,50 @@ function handleSaveTreatment(e) {
         treatmentDate: treatmentDate,
         treatmentType: treatmentType,
         symptoms: document.getElementById('symptoms').value,
-        medication: document.getElementById('medication').value,
-        dosage: document.getElementById('dosage').value,
+        medication: treatmentType === 'Feed' ? document.getElementById('treatmentFeedType').options[document.getElementById('treatmentFeedType').selectedIndex].text.split(' (')[0] : document.getElementById('medication').value,
+        dosage: dosage,
         followUpDate: document.getElementById('followUpDate').value,
         cost: costEl ? parseFloat(costEl.value) || null : null,
         treatmentNotes: document.getElementById('treatmentNotes').value,
     };
 
+    const allUpdates = {};
+
     if (!isNaN(treatmentWeight) && treatmentWeight > 0) {
         const weightData = { date: treatmentDate, weight: treatmentWeight };
-        push(ref(db, `sheepHealthRecords/${recordId}/weights`), weightData);
+        const newWeightKey = push(child(ref(db), `sheepHealthRecords/${recordId}/weights`)).key;
+        allUpdates[`sheepHealthRecords/${recordId}/weights/${newWeightKey}`] = weightData;
     }
 
-    const treatmentsRef = ref(db, `sheepHealthRecords/${recordId}/treatments`);
-    const promise = entryId ? update(child(treatmentsRef, entryId), entryData) : push(treatmentsRef, entryData);
-
-    promise.then(() => {
-        const mainRecordUpdates = {};
-        if (treatmentType === 'Deworming') {
-            mainRecordUpdates.lastDewormingDate = treatmentDate;
-            mainRecordUpdates.lastDewormingNotes = entryData.treatmentNotes;
-        } else if (treatmentType === 'Vaccination') {
-            mainRecordUpdates.lastVaccinationDate = treatmentDate;
-            mainRecordUpdates.lastVaccinationNotes = entryData.treatmentNotes;
+    // If it's a feed entry, update the inventory
+    if (treatmentType === 'Feed' && !isNaN(dosage)) {
+        const feedSelect = document.getElementById('treatmentFeedType');
+        const feedId = feedSelect.value;
+        const feedItem = masterFeedInventory.find(f => f.id === feedId);
+        if (feedItem) {
+            const newQuantity = feedItem.quantityOnHand - dosage;
+            allUpdates[`feedInventory/${feedId}/quantityOnHand`] = newQuantity;
         }
+    }
 
-        const record = allRecords.find(r => r.id === recordId);
-        if (record && record.healthStatus === 'Corentin') {
-            mainRecordUpdates.healthStatus = 'Under Treatment';
-        }
+    // Handle main record updates (preventative care dates, health status)
+    if (treatmentType === 'Deworming') {
+        allUpdates[`sheepHealthRecords/${recordId}/lastDewormingDate`] = treatmentDate;
+        allUpdates[`sheepHealthRecords/${recordId}/lastDewormingNotes`] = entryData.treatmentNotes;
+    } else if (treatmentType === 'Vaccination') {
+        allUpdates[`sheepHealthRecords/${recordId}/lastVaccinationDate`] = treatmentDate;
+        allUpdates[`sheepHealthRecords/${recordId}/lastVaccinationNotes`] = entryData.treatmentNotes;
+    }
+    const record = allRecords.find(r => r.id === recordId);
+    if (record && record.healthStatus === 'Corentin') {
+        allUpdates[`sheepHealthRecords/${recordId}/healthStatus`] = 'Under Treatment';
+    }
 
-        if (Object.keys(mainRecordUpdates).length > 0) {
-            update(ref(db, `sheepHealthRecords/${recordId}`), mainRecordUpdates);
-        }
+    // Handle the treatment entry itself (add or update)
+    const treatmentPath = `sheepHealthRecords/${recordId}/treatments/${entryId || push(child(ref(db), 'treatments')).key}`;
+    allUpdates[treatmentPath] = entryData;
+
+    update(ref(db), allUpdates).then(() => {
         resetTreatmentForm();
     }).catch(error => {
         console.error("Error saving treatment:", error);
@@ -2160,6 +2437,32 @@ function resetTreatmentForm() {
     document.getElementById('addTreatmentForm').reset();
     document.getElementById('treatmentEntryId').value = '';
     document.getElementById('treatmentDate').valueAsDate = new Date();
+    toggleTreatmentFormForFeed('General'); // Reset to default view
+}
+
+function toggleTreatmentFormForFeed(type) {
+    const feedFields = document.getElementById('feedSpecificFields');
+    const medicationField = document.getElementById('medicationField');
+    const costInput = document.getElementById('treatmentCost');
+
+    if (type === 'Feed') {
+        feedFields.classList.remove('hidden');
+        medicationField.classList.add('hidden');
+        costInput.readOnly = true;
+        calculateFeedCost();
+    } else {
+        feedFields.classList.add('hidden');
+        medicationField.classList.remove('hidden');
+        costInput.readOnly = false;
+    }
+}
+
+function calculateFeedCost() {
+    const feedSelect = document.getElementById('treatmentFeedType');
+    if (!feedSelect.options || feedSelect.selectedIndex < 0) return;
+    const pricePerKg = parseFloat(feedSelect.options[feedSelect.selectedIndex]?.dataset.price || 0);
+    const quantity = parseFloat(document.getElementById('dosage').value) || 0;
+    document.getElementById('treatmentCost').value = (pricePerKg * quantity).toFixed(2);
 }
 
 function handleBatchSaveTreatment(e) {
@@ -2252,6 +2555,21 @@ function handleUpdateSoldRecord(e) {
             console.error("Error updating sold record:", error);
             alert("An error occurred while updating the sale record: " + error.message);
         });
+}
+
+function handleAddFeedItem(e) {
+    e.preventDefault();
+    const newFeedItem = {
+        name: document.getElementById('feedName').value.trim(),
+        pricePerKg: parseFloat(document.getElementById('feedPricePerKg').value),
+        quantityOnHand: parseFloat(document.getElementById('feedQuantity').value)
+    };
+
+    if (!newFeedItem.name || isNaN(newFeedItem.pricePerKg) || isNaN(newFeedItem.quantityOnHand)) {
+        return alert('Please fill out all fields with valid numbers.');
+    }
+
+    push(ref(db, 'feedInventory'), newFeedItem).then(() => e.target.reset());
 }
 
 // --- SHEEP PROFILE SECTION ---
@@ -2881,32 +3199,42 @@ function downloadCSV(csv, filename) {
  * Initializes the main application UI, modals, and event listeners.
  */
 function initializeUI() {
-    const initializeModal = (id) => {
-        const element = document.getElementById(id);
-        if (element) {
-            return new bootstrap.Modal(element);
+    runSafely('Modal Initialization', () => {
+        const initializeModal = (id) => {
+            const element = document.getElementById(id);
+            if (element) {
+                return new bootstrap.Modal(element);
+            }
+            console.error(`Modal initialization failed: Element with ID '${id}' not found in the HTML.`);
+            return null;
+        };
+
+        // Initialize Bootstrap Modals
+        editSheepModal = initializeModal('editSheepModal');
+        saleSheepModal = initializeModal('saleSheepModal');
+        treatmentLogModal = initializeModal('treatmentLogModal');
+        weightEntryModal = initializeModal('weightEntryModal');
+        batchTreatmentModal = initializeModal('batchTreatmentModal');
+        editSoldSheepModal = initializeModal('editSoldSheepModal');
+    });
+
+    runSafely('Set Default Date', () => {
+        // Set default date for new records
+        const dateEl = document.getElementById('dateRecorded');
+        if (dateEl) {
+            dateEl.valueAsDate = new Date();
         }
-        console.error(`Modal initialization failed: Element with ID '${id}' not found in the HTML.`);
-        return null;
-    };
+    });
 
-    // Initialize Bootstrap Modals
-    editSheepModal = initializeModal('editSheepModal');
-    saleSheepModal = initializeModal('saleSheepModal');
-    treatmentLogModal = initializeModal('treatmentLogModal');
-    weightEntryModal = initializeModal('weightEntryModal');
-    batchTreatmentModal = initializeModal('batchTreatmentModal');
-    editSoldSheepModal = initializeModal('editSoldSheepModal');
+    runSafely('Add Event Listeners', addEventListeners);
 
-    // Set default date for new records
-    document.getElementById('dateRecorded').valueAsDate = new Date();
-
-    addEventListeners();
-
-    // Initial data fetch
-    fetchAllRecords();
-    fetchSoldRecords();
-    fetchArchivedRecords();
+    runSafely('Initial Data Fetch', () => {
+        // Initial data fetch
+        fetchAllRecords();
+        fetchSoldRecords();
+        fetchFeedInventory();
+        fetchArchivedRecords();
+    });
 }
 
 /**
@@ -2940,6 +3268,7 @@ function addEventListeners() {
         else if (target.closest('.js-manage-treatment')) openTreatmentLog(recordId, sheepId);
         else if (target.closest('.js-edit-treatment')) editTreatmentEntry(recordId, recordBtn.dataset.entryId);
         else if (target.closest('.js-delete-treatment')) deleteTreatmentEntry(recordId, recordBtn.dataset.entryId);
+        else if (target.closest('.js-delete-feed-item')) deleteFeedItem(recordBtn.dataset.feedId, recordBtn.dataset.feedName);
         else if (target.closest('.js-delete-sold-record')) deleteSoldRecord(recordId, sheepId);
         else if (target.closest('.js-delete-archived-record')) deleteArchivedRecord(recordId, sheepId);
         else if (target.closest('.js-edit-sold-record')) openEditSoldModal(recordId);
@@ -2965,7 +3294,22 @@ function addEventListeners() {
         else if (target.closest('.js-export-sold')) exportSoldData();
         else if (target.closest('.notification-item')) {
             e.preventDefault();
-            viewRecordFromNotification(target.closest('.notification-item').dataset.recordId);
+            const notificationLink = target.closest('.notification-item');
+            const recordId = notificationLink.dataset.recordId;
+            const notificationType = notificationLink.dataset.notificationType;
+
+            if (notificationType === 'schedule') {
+                showSection('schedule');
+                // Highlight the corresponding row for better UX
+                const row = document.querySelector(`#scheduleTableBody tr[data-sheep-id="${recordId}"]`);
+                if (row) {
+                    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    row.classList.add('table-info-light');
+                    setTimeout(() => row.classList.remove('table-info-light'), 3000);
+                }
+            } else { // Default to treatment log for treatment follow-ups
+                viewRecordFromNotification(recordId);
+            }
         }
         else if (target.closest('.profile-link')) {
             e.preventDefault();
@@ -2998,10 +3342,12 @@ function addEventListeners() {
     addSafeEventListener('addTreatmentForm', 'submit', handleSaveTreatment);
     addSafeEventListener('batchTreatmentForm', 'submit', handleBatchSaveTreatment);
     addSafeEventListener('editSoldSheepForm', 'submit', handleUpdateSoldRecord);
+    addSafeEventListener('addFeedForm', 'submit', handleAddFeedItem);
     addSafeEventListener('weightEntryForm', 'submit', handleSaveWeight);
 
     // --- Filters & Search ---
     addSafeEventListener('weeklyFilterButtons', 'click', e => { if (e.target.matches('button')) updateWeeklyTrackingView(e.target.dataset.filter); });
+    addSafeEventListener('scheduleFilterButtons', 'click', e => { if (e.target.matches('button')) updateScheduleView(e.target.dataset.filter); });
 
     mainApp.addEventListener('keyup', e => {
         if (e.target.matches('input[data-table-body-id]')) {
@@ -3033,6 +3379,12 @@ function addEventListeners() {
     mainApp.addEventListener('change', e => {
         if (e.target.matches('#soldMonthFilter') || e.target.matches('#soldYearFilter')) {
             updateSoldRecordsView();
+        }
+        // Listen for changes in the treatment form to update UI
+        if (e.target.matches('#treatmentType')) {
+            toggleTreatmentFormForFeed(e.target.value);
+        } else if (e.target.matches('#treatmentFeedType') || e.target.matches('#dosage')) {
+            if (document.getElementById('treatmentType').value === 'Feed') calculateFeedCost();
         }
     });
 
