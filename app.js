@@ -1,6 +1,8 @@
+let healthStatusPieChartInstance = null;
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
-import { getDatabase, ref, onValue, off, push, update, remove, child, orderByChild, query } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js";
+import { getDatabase, ref, onValue, off, push, update, remove, child, query } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js";
 
 console.log("app.js loaded successfully."); // Diagnostic log to confirm file version
 // --- CONFIGURATION ---
@@ -14,13 +16,24 @@ const db = getDatabase(app);
 const auth = getAuth(app);
 
 // --- STATE VARIABLES ---
+let masterAllRecords = [];
+let masterSoldRecords = [];
+let masterArchivedRecords = [];
 let allRecords = [];
 let soldRecords = [];
 let archivedRecords = [];
 let editSheepModal, saleSheepModal, treatmentLogModal, weightEntryModal, batchTreatmentModal, editSoldSheepModal;
-let weightChart, profileWeightChart;
+let state = {
+    growthAnalyticsData: [], // Stores the raw calculated growth data for filtering/sorting
+    currentGrowthFilters: { gender: 'all', breed: 'all', searchTerm: '' }
+};
+
+let weightChart, profileWeightChart, profitLossChart;
 let currentWeeklyFilter = 'all';
 let currentScheduleFilter = 'all';
+let currentSoldFilter = 'all';
+let growthAnalyticsSort = { column: 'adg', direction: 'desc' };
+let monthlySummarySort = 'newest'; // To store the current sort order for the monthly summary
 let treatmentLogListener = null; // To manage the live listener for the treatment modal
 
 // --- DOM ELEMENT SELECTORS ---
@@ -110,6 +123,9 @@ function showSection(sectionName) {
     document.getElementById(sectionName + 'Section').classList.remove('hidden');
     document.querySelector(`.nav-link[data-section="${sectionName}"]`).classList.add('active');
 
+    if (sectionName === 'growth') {
+        displayGrowthAnalytics();
+    }
     const sidebar = document.querySelector('.dashboard-sidebar');
     if (sidebar.classList.contains('visible')) {
         sidebar.classList.remove('visible');
@@ -151,59 +167,113 @@ function getFollowUpStatus(record) {
     }
 }
 
+function applyFiltersAndRender() {
+    const yearFilter = document.getElementById('globalYearFilter')?.value || 'all';
+    const monthFilter = document.getElementById('globalMonthFilter')?.value || 'all';
+    const clearBtn = document.getElementById('globalDateClearBtn');
+
+    if (clearBtn) {
+        clearBtn.style.display = (yearFilter !== 'all' || monthFilter !== 'all') ? 'inline-block' : 'none';
+    }
+
+    // Filter Active Records
+    allRecords = masterAllRecords.filter(record => {
+        if (yearFilter === 'all' && monthFilter === 'all') return true;
+        if (!record.dateRecorded) return false;
+        const recordDate = new Date(record.dateRecorded + 'T00:00:00');
+        if (isNaN(recordDate.getTime())) return false;
+        if (yearFilter !== 'all' && recordDate.getFullYear().toString() !== yearFilter) return false;
+        if (monthFilter !== 'all' && recordDate.getMonth().toString() !== monthFilter) return false;
+        return true;
+    });
+
+    // Filter Sold Records
+    soldRecords = masterSoldRecords.filter(record => {
+        if (yearFilter === 'all' && monthFilter === 'all') return true;
+        if (!record.saleDate) return false;
+        const recordDate = new Date(record.saleDate + 'T00:00:00');
+        if (isNaN(recordDate.getTime())) return false;
+        if (yearFilter !== 'all' && recordDate.getFullYear().toString() !== yearFilter) return false;
+        if (monthFilter !== 'all' && recordDate.getMonth().toString() !== monthFilter) return false;
+        return true;
+    });
+
+    // Filter Archived Records
+    archivedRecords = masterArchivedRecords.filter(record => {
+        if (yearFilter === 'all' && monthFilter === 'all') return true;
+        if (!record.archiveDate) return false;
+        const recordDate = new Date(record.archiveDate + 'T00:00:00');
+        if (isNaN(recordDate.getTime())) return false;
+        if (yearFilter !== 'all' && recordDate.getFullYear().toString() !== yearFilter) return false;
+        if (monthFilter !== 'all' && recordDate.getMonth().toString() !== monthFilter) return false;
+        return true;
+    });
+    
+    // Re-render all views with the filtered data
+    displayGrowthAnalytics();
+    renderAllRecordTables();
+    renderSoldView();
+    renderArchivedView();
+    updateFlockStatus();
+    updateProfileView();
+    updateWeightTrackingView();
+    updateScheduleView();
+    updateWeeklyTrackingView();
+}
+
+function renderAllRecordTables() {
+    let healthyHtml = '';
+    let corentinRecords = [];
+    let overdueRecords = [];
+    let underTreatmentRecords = [];
+    let pregnantRecords = [];
+
+    allRecords.forEach(record => {
+        const status = record.healthStatus;
+
+        if (status === 'Healthy' || status === 'Recovering') {
+            healthyHtml += renderHealthyRow(record);
+        } else if (status === 'Corentin' || status === 'Under Treatment') {
+            if (getFollowUpStatus(record) === 'overdue') {
+                overdueRecords.push(record);
+            } else {
+                if (status === 'Corentin') {
+                    corentinRecords.push(record);
+                } else {
+                    underTreatmentRecords.push(record);
+                }
+            }
+        } else if (status === 'Pregnant') {
+            pregnantRecords.push(record);
+        }
+    });
+
+    const overdueHtml = overdueRecords.map(renderTreatmentRow).join('');
+    const corentinHtml = corentinRecords.map(renderTreatmentRow).join('');
+    const treatmentHtml = underTreatmentRecords.map(renderTreatmentRow).join('');
+    const pregnantHtml = pregnantRecords.map(renderPregnantRow).join('');
+
+    updateElement('healthyRecordsTableBody', healthyHtml || `<tr><td colspan="10" class="text-center">No healthy records match the filter.</td></tr>`, true);
+    updateElement('overdueRecordsTableBody', overdueHtml || `<tr><td colspan="6" class="text-center">No overdue records. Great job!</td></tr>`, true);
+    updateElement('corentinRecordsTableBody', corentinHtml || `<tr><td colspan="6" class="text-center">No 'Corentin' records match the filter.</td></tr>`, true);
+    updateElement('treatmentRecordsTableBody', treatmentHtml || `<tr><td colspan="6" class="text-center">No 'Under Treatment' records match the filter.</td></tr>`, true);
+    updateElement('pregnantRecordsTableBody', pregnantHtml || `<tr><td colspan="6" class="text-center">No 'Pregnant' records match the filter.</td></tr>`, true);
+}
+
 function fetchAllRecords() {
     const recordsRef = ref(db, "sheepHealthRecords");
     onValue(recordsRef, (snapshot) => {
-        let healthyHtml = '';
-        let corentinRecords = [];
-        let overdueRecords = [];
-        let underTreatmentRecords = [];
-        let pregnantRecords = [];
-        allRecords = [];
+        masterAllRecords = [];
 
         if (snapshot.exists()) {
             snapshot.forEach(child => {
                 const record = { id: child.key, ...child.val() };
-                allRecords.push(record);
-                const status = record.healthStatus;
-
-                if (status === 'Healthy' || status === 'Recovering') {
-                    healthyHtml += renderHealthyRow(record);
-                } else if (status === 'Corentin' || status === 'Under Treatment') {
-                    // Check for overdue status first to pull them into a separate list
-                    if (getFollowUpStatus(record) === 'overdue') {
-                        overdueRecords.push(record);
-                    } else {
-                        // If not overdue, sort into their respective lists
-                        if (status === 'Corentin') {
-                            corentinRecords.push(record);
-                        } else { // Under Treatment
-                            underTreatmentRecords.push(record);
-                        }
-                    }
-                } else if (status === 'Pregnant') {
-                    pregnantRecords.push(record);
-                }
+                masterAllRecords.push(record);
             });
         }
 
-        const overdueHtml = overdueRecords.map(renderTreatmentRow).join('');
-        const corentinHtml = corentinRecords.map(renderTreatmentRow).join('');
-        const treatmentHtml = underTreatmentRecords.map(renderTreatmentRow).join('');
-        const pregnantHtml = pregnantRecords.map(renderPregnantRow).join('');
-
-        document.getElementById('healthyRecordsTableBody').innerHTML = healthyHtml || `<tr><td colspan="7" class="text-center">No healthy records.</td></tr>`;
-        document.getElementById('overdueRecordsTableBody').innerHTML = overdueHtml || `<tr><td colspan="6" class="text-center">No overdue records. Great job!</td></tr>`;
-        document.getElementById('corentinRecordsTableBody').innerHTML = corentinHtml || `<tr><td colspan="6" class="text-center">No 'Corentin' status records.</td></tr>`;
-        document.getElementById('treatmentRecordsTableBody').innerHTML = treatmentHtml || `<tr><td colspan="6" class="text-center">No 'Under Treatment' records.</td></tr>`;
-        document.getElementById('pregnantRecordsTableBody').innerHTML = pregnantHtml || `<tr><td colspan="6" class="text-center">No pregnant records.</td></tr>`;
-
-        updateFlockStatus();
-        updateGrowthAnalytics();
-        updateScheduleView();
-        updateWeeklyTrackingView();
-        updateWeightTrackingView();
-        updateProfileView();
+        populateGlobalFilters();
+        applyFiltersAndRender();
         checkTreatmentFollowUps();
         checkPreventativeCareReminders();
     }, (error) => {
@@ -223,70 +293,76 @@ function fetchAllRecords() {
     });
 }
 
+function renderSoldView() {
+    const monthlyTotals = {};
+    const yearlyTotals = {};
+
+    masterSoldRecords.forEach(record => { // Changed from soldRecords to masterSoldRecords
+        try {
+            if (record.saleDate && record.salePrice != null) {
+                const saleDate = new Date(record.saleDate + 'T00:00:00');
+                if (!isNaN(saleDate.getTime())) {
+                    const monthKey = `${saleDate.getFullYear()}-${String(saleDate.getMonth() + 1).padStart(2, '0')}`;
+                    const yearKey = `${saleDate.getFullYear()}`;
+                    if (!monthlyTotals[monthKey]) monthlyTotals[monthKey] = { sales: 0, profit: 0 };
+                    if (!yearlyTotals[yearKey]) yearlyTotals[yearKey] = { sales: 0, profit: 0 };
+                    const salePrice = parseFloat(record.salePrice) || 0;
+                    const buyingPrice = parseFloat(record.buyingPrice) || 0;
+                    const treatmentCosts = (record.treatments && typeof record.treatments === 'object') ? Object.values(record.treatments).reduce((sum, t) => sum + (parseFloat(t.cost) || 0), 0) : 0;
+                    const totalCost = buyingPrice + treatmentCosts;
+                    const profit = salePrice - totalCost;
+                    monthlyTotals[monthKey].sales += salePrice;
+                    monthlyTotals[monthKey].profit += profit;
+                    yearlyTotals[yearKey].sales += salePrice;
+                    yearlyTotals[yearKey].profit += profit;
+                }
+            }
+        } catch (e) { console.error(`Error processing sold record ${record.id}:`, e); }
+    });
+
+    renderMonthlySalesSummary(monthlyTotals);
+    renderYearlySalesSummary(yearlyTotals);
+    renderProfitLossChart(monthlyTotals);
+    updateSoldRecordsView(); // This will render the table with the filtered data
+}
+
 function fetchSoldRecords() {
     const recordsRef = ref(db, "sheepSaledRecords");
-    const soldQuery = query(recordsRef, orderByChild("saleDate"));
-    onValue(soldQuery, snapshot => {
-        const tableBody = document.getElementById('sheepSaledTableBody');
-        soldRecords = [];
-        let rowsHtml = '';
-        const monthlyTotals = {};
-
+    onValue(recordsRef, snapshot => {
+        masterSoldRecords = [];
         if (snapshot.exists()) {
             snapshot.forEach(child => {
                 const record = { id: child.key, ...child.val() };
-                soldRecords.push(record);
-
-                // Calculate monthly totals
-                if (record.saleDate && record.salePrice) {
-                    const saleDate = new Date(record.saleDate + 'T00:00:00');
-                    if (!isNaN(saleDate.getTime())) {
-                        const monthKey = `${saleDate.getFullYear()}-${String(saleDate.getMonth() + 1).padStart(2, '0')}`; // e.g., "2025-08"
-                        
-                        if (!monthlyTotals[monthKey]) {
-                            monthlyTotals[monthKey] = { sales: 0, profit: 0 };
-                        }
-
-                        const salePrice = parseFloat(record.salePrice) || 0;
-                        const buyingPrice = parseFloat(record.buyingPrice) || 0;
-                        const profit = salePrice - buyingPrice;
-
-                        monthlyTotals[monthKey].sales += salePrice;
-                        monthlyTotals[monthKey].profit += profit;
-                    }
-                }
+                masterSoldRecords.push(record);
             });
-            soldRecords.reverse(); // Show newest first
-            rowsHtml = soldRecords.map(renderSoldRow).join('');
         }
-        tableBody.innerHTML = rowsHtml || `<tr><td colspan="5" class="text-center p-4 text-muted">No sold records found.</td></tr>`;
-        
-        renderMonthlySalesSummary(monthlyTotals);
-
-        updateProfileView();
+        populateGlobalFilters();
+        applyFiltersAndRender();
     }, error => {
         console.error("Error fetching sold records:", error);
         document.getElementById('sheepSaledTableBody').innerHTML = `<tr><td colspan="5" class="text-center text-danger p-4">Error loading sold records. Check browser console for details.</td></tr>`;
     });
 }
 
+function renderArchivedView() {
+    const tableBody = document.getElementById('archivedRecordsTableBody');
+    if (!tableBody) return;
+    const rowsHtml = archivedRecords.map(renderArchivedRow).join('');
+    tableBody.innerHTML = rowsHtml || `<tr><td colspan="6" class="text-center">No archived records match the filter.</td></tr>`;
+}
+
 function fetchArchivedRecords() {
     const recordsRef = ref(db, "sheepArchivedRecords");
-    const archivedQuery = query(recordsRef, orderByChild("archiveDate"));
-    onValue(archivedQuery, snapshot => {
-        const tableBody = document.getElementById('archivedRecordsTableBody');
-        archivedRecords = [];
-        let rowsHtml = '';
+    onValue(recordsRef, snapshot => {
+        masterArchivedRecords = [];
         if (snapshot.exists()) {
             snapshot.forEach(child => {
                 const record = { id: child.key, ...child.val() };
-                archivedRecords.push(record);
+                masterArchivedRecords.push(record);
             });
-            archivedRecords.reverse(); // Show newest first
-            rowsHtml = archivedRecords.map(renderArchivedRow).join('');
         }
-        tableBody.innerHTML = rowsHtml || `<tr><td colspan="6" class="text-center">No archived records.</td></tr>`;
-        updateProfileView();
+        populateGlobalFilters();
+        applyFiltersAndRender();
     }, error => {
         console.error("Error fetching archived records:", error);
         document.getElementById('archivedRecordsTableBody').innerHTML = `<tr><td colspan="6" class="text-center text-danger">Error loading archived records. Check browser console for details.</td></tr>`;
@@ -337,7 +413,11 @@ function renderSoldRow(record) {
     // Financial Calculations
     const buyingPrice = parseFloat(record.buyingPrice) || 0;
     const salePrice = parseFloat(record.salePrice) || 0;
-    const profit = salePrice - buyingPrice;
+    const treatmentCosts = (record.treatments && typeof record.treatments === 'object')
+        ? Object.values(record.treatments).reduce((sum, t) => sum + (parseFloat(t.cost) || 0), 0)
+        : 0;
+    const totalCost = buyingPrice + treatmentCosts;
+    const profit = salePrice - totalCost;
 
     let profitClass = 'text-body-secondary';
     let profitSign = '';
@@ -361,6 +441,7 @@ function renderSoldRow(record) {
             <td>
                 <div class="d-flex justify-content-between"><span>Sale Price</span><strong>₹${salePrice.toFixed(2)}</strong></div>
                 <div class="d-flex justify-content-between small text-muted"><span>Buying Price</span><span>- ₹${buyingPrice.toFixed(2)}</span></div>
+                <div class="d-flex justify-content-between small text-muted"><span>Treatment Costs</span><span>- ₹${treatmentCosts.toFixed(2)}</span></div>
                 <hr class="my-1">
                 <div class="d-flex justify-content-between fw-bold ${profitClass}"><span>Profit/Loss</span><span>${profitSign}₹${profit.toFixed(2)}</span></div>
             </td>
@@ -378,11 +459,20 @@ function renderSoldRow(record) {
 }
 
 
-function renderMonthlySalesSummary(monthlyTotals) {
+function renderMonthlySalesSummary(monthlyTotals, sortBy = monthlySummarySort) {
+    // monthlySummarySort = sortBy; // This is now handled by the caller to avoid side-effects
+
     const container = document.getElementById('monthlySalesSummary');
     if (!container) {
-        console.error("UI Error: HTML element with ID 'monthlySalesSummary' not found.");
-        return;
+        return; // Not an error if the element is not on the current page.
+    }
+
+    // Update the active state on the sort buttons
+    const sortButtons = document.querySelectorAll('#monthlySalesSort button');
+    if (sortButtons.length > 0) {
+        sortButtons.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.sort === sortBy);
+        });
     }
 
     if (Object.keys(monthlyTotals).length === 0) {
@@ -390,8 +480,21 @@ function renderMonthlySalesSummary(monthlyTotals) {
         return;
     }
 
-    // Sort months chronologically, newest first, and limit to the last 6 for a clean look
-    const sortedMonths = Object.keys(monthlyTotals).sort().reverse().slice(0, 6);
+    let sortedMonths;
+    const monthEntries = Object.entries(monthlyTotals);
+
+    switch (sortBy) {
+        case 'profit':
+            sortedMonths = monthEntries.sort(([, a], [, b]) => b.profit - a.profit).map(([key]) => key);
+            break;
+        case 'sales':
+            sortedMonths = monthEntries.sort(([, a], [, b]) => b.sales - a.sales).map(([key]) => key);
+            break;
+        case 'newest':
+        default:
+            sortedMonths = Object.keys(monthlyTotals).sort().reverse();
+            break;
+    }
 
     let listHtml = '<ul class="list-group list-group-flush">';
     sortedMonths.forEach(monthKey => {
@@ -421,6 +524,214 @@ function renderMonthlySalesSummary(monthlyTotals) {
     container.innerHTML = listHtml;
 }
 
+function renderYearlySalesSummary(yearlyTotals) {
+    const container = document.getElementById('yearlySalesSummary');
+    if (!container) {
+        console.error("UI Error: HTML element with ID 'yearlySalesSummary' not found.");
+        return;
+    }
+
+    if (Object.keys(yearlyTotals).length === 0) {
+        container.innerHTML = '<p class="text-muted text-center p-3 mb-0">No sales data available for years.</p>';
+        return;
+    }
+
+    // Sort years chronologically, newest first, and limit to the last 5 years for a clean look
+    const sortedYears = Object.keys(yearlyTotals).sort().reverse().slice(0, 5);
+
+    let listHtml = '<ul class="list-group list-group-flush">';
+    sortedYears.forEach(yearKey => {
+        const yearData = yearlyTotals[yearKey];
+        const { sales, profit } = yearData;
+
+        const profitClass = profit >= 0 ? 'text-success' : 'text-danger';
+        const profitSign = profit >= 0 ? '+' : '';
+
+        listHtml += `
+            <li class="list-group-item">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span>${yearKey}</span>
+                    <strong class="text-dark-emphasis">₹${sales.toFixed(2)}</strong>
+                </div>
+                <div class="d-flex justify-content-between align-items-center small mt-1">
+                    <span class="text-muted">Profit/Loss</span>
+                    <strong class="${profitClass}">${profitSign}₹${profit.toFixed(2)}</strong>
+                </div>
+            </li>
+        `;
+    });
+    listHtml += '</ul>';
+
+    container.innerHTML = listHtml;
+}
+
+/**
+ * Renders a bar chart showing monthly profit and loss.
+ * @param {object} monthlyData - An object with month keys and profit/sales data.
+ */
+function renderProfitLossChart(monthlyData) {
+    const chartCanvas = document.getElementById('profitLossChart');
+    const noDataEl = document.getElementById('noChartDataMessage');
+
+    if (!chartCanvas || !noDataEl) {
+        // This can happen if the user is not on the 'saled' page. It's not an error.
+        return;
+    }
+
+    if (Object.keys(monthlyData).length < 1) {
+        chartCanvas.style.display = 'none';
+        noDataEl.style.display = 'block';
+        noDataEl.textContent = 'No sales data available to generate a chart.';
+        if (profitLossChart) {
+            profitLossChart.destroy();
+            profitLossChart = null;
+        }
+        return;
+    }
+
+    chartCanvas.style.display = 'block';
+    noDataEl.style.display = 'none';
+
+    const sortedMonths = Object.keys(monthlyData).sort();
+
+    const labels = sortedMonths.map(monthKey => {
+        const [year, month] = monthKey.split('-');
+        return new Date(year, month - 1, 1).toLocaleString('default', { month: 'short', year: 'numeric' });
+    });
+
+    const salesData = sortedMonths.map(monthKey => monthlyData[monthKey].sales);
+    const profitData = sortedMonths.map(monthKey => {
+        const profit = monthlyData[monthKey].profit;
+        return profit > 0 ? profit : 0;
+    });
+    const lossData = sortedMonths.map(monthKey => {
+        const profit = monthlyData[monthKey].profit;
+        return profit < 0 ? -profit : 0; // Store as a positive number for bar height
+    });
+
+    const ctx = chartCanvas.getContext('2d');
+    if (profitLossChart) {
+        profitLossChart.destroy();
+    }
+
+    profitLossChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Total Sales',
+                    data: salesData,
+                    backgroundColor: 'rgba(13, 110, 253, 0.6)',
+                    borderColor: 'rgba(13, 110, 253, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Profit',
+                    data: profitData,
+                    backgroundColor: 'rgba(25, 135, 84, 0.6)',
+                    borderColor: 'rgba(25, 135, 84, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Loss',
+                    data: lossData,
+                    backgroundColor: 'rgba(220, 53, 69, 0.6)',
+                    borderColor: 'rgba(220, 53, 69, 1)',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, title: { display: true, text: 'Amount (₹)' } },
+                x: { title: { display: true, text: 'Month' } }
+            },
+            plugins: {
+                legend: { display: true, position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        label: context => {
+                            let label = context.dataset.label || '';
+                            let value = context.parsed.y;
+                            if (label === 'Loss' && value !== 0) {
+                                return `${label}: -₹${value.toFixed(2)}`;
+                            }
+                            return `${label}: ₹${value.toFixed(2)}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Filters and renders the sold records table based on the selected filter.
+ * @param {string} [filter=currentSoldFilter] - The filter to apply ('all', 'profitable', 'loss').
+ */
+function updateSoldRecordsView(filter = currentSoldFilter) {
+    currentSoldFilter = filter;
+
+    document.querySelectorAll('#soldRecordsFilterButtons button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filter);
+    });
+
+    const clearBtn = document.getElementById('clearSoldFiltersBtn');
+
+    // Show clear button if any local filter is active
+    if (clearBtn) {
+        clearBtn.style.display = (filter !== 'all') ? 'inline-block' : 'none';
+    }
+
+    const tableBody = document.getElementById('sheepSaledTableBody');
+
+    // Start with the master list of sold records, unaffected by global filters
+    const recordsToProcess = [...masterSoldRecords];
+
+    // Get local month and year filters for the sold records card
+    const localMonthFilter = document.getElementById('soldMonthFilter')?.value || 'all';
+    const localYearFilter = document.getElementById('soldYearFilter')?.value || 'all';
+
+    const filteredRecords = recordsToProcess.filter(record => {
+        // Ensure record.saleDate exists and is valid
+        if (!record.saleDate) return false;
+        const saleDate = new Date(record.saleDate + 'T00:00:00'); // Ensure date is parsed correctly
+        if (isNaN(saleDate.getTime())) return false; // Skip records with invalid sale dates
+
+        // Apply local month and year filters from the sold records card
+        const monthMatch = (localMonthFilter === 'all') || ((saleDate.getMonth() + 1).toString() === localMonthFilter);
+        const yearMatch = (localYearFilter === 'all') || (saleDate.getFullYear().toString() === localYearFilter);
+
+        if (!monthMatch || !yearMatch) return false; // If month or year doesn't match, exclude
+
+        if (filter === 'all') {
+            return true;
+        }
+        // Profitability filter logic remains the same
+        const buyingPrice = parseFloat(record.buyingPrice) || 0;
+        const salePrice = parseFloat(record.salePrice) || 0;
+        const treatmentCosts = (record.treatments && typeof record.treatments === 'object')
+            ? Object.values(record.treatments).reduce((sum, t) => sum + (parseFloat(t.cost) || 0), 0)
+            : 0;
+        const totalCost = buyingPrice + treatmentCosts;
+        const profit = salePrice - totalCost;
+
+        if (filter === 'profitable' && profit < 0) return false;
+        if (filter === 'loss' && profit >= 0) return false;
+
+        return true; // Record passes all filters
+    });
+
+    // Sort by sale date, newest first, to show the latest sales at the top.
+    filteredRecords.sort((a, b) => new Date(b.saleDate) - new Date(a.saleDate));
+
+    const rowsHtml = filteredRecords.map(renderSoldRow).join('');
+    tableBody.innerHTML = rowsHtml || `<tr><td colspan="5" class="text-center p-4 text-muted">No sold records match the filter criteria.</td></tr>`;
+}
+
 function renderArchivedRow(record) {
     return `<tr>
         <td><strong>${record.sheepId}</strong></td>
@@ -438,7 +749,7 @@ function renderHealthyRow(record) {
         <td>${record.gender || 'N/A'}</td>
         <td>${record.breed || 'N/A'}</td>
         <td><span class="${getStatusClass(record.healthStatus)}">${record.healthStatus}</span></td>
-        <td>${formatDate(record.dateRecorded)}</td>
+        <td class="text-nowrap">${formatDate(record.dateRecorded)}</td>
         <td>${record.weight || 'N/A'}</td>
         <td>${record.temperature || 'N/A'}</td>
         <td>${record.buyingPrice ? `₹${parseFloat(record.buyingPrice).toFixed(2)}` : 'N/A'}</td>
@@ -489,7 +800,7 @@ function renderTreatmentRow(record) {
         <td><span class="${getStatusClass(record.healthStatus)}">${record.healthStatus}</span></td>
         <td>${formatDate(record.dateRecorded)}</td>
         <td>${lastUpdate}</td>
-        <td>${followUpDateHtml}</td>
+        <td class="text-nowrap">${followUpDateHtml}</td>
         <td>${actionButtons}</td>
     </tr>`;
 }
@@ -518,7 +829,7 @@ function renderPregnantRow(record) {
         <td><span class="${getStatusClass(record.healthStatus)}">${record.healthStatus}</span></td>
         <td>${formatDate(record.dateRecorded)}</td>
         <td>${lastUpdate}</td>
-        <td>${followUpDateHtml}</td>
+        <td class="text-nowrap">${followUpDateHtml}</td>
         <td>
             <button class="btn btn-sm btn-info js-manage-treatment" data-record-id="${record.id}" data-sheep-id="${record.sheepId}"><i class="fas fa-notes-medical"></i> Manage</button>
             <button class="btn btn-sm btn-outline-primary js-edit-record" data-record-id="${record.id}"><i class="fas fa-edit"></i></button>
@@ -527,17 +838,35 @@ function renderPregnantRow(record) {
 }
 
 function renderWeeklyRow(record) {
-    const lastActivityDateStr = formatDate(record.lastActivityDate.toISOString().split('T')[0]);
-    const weeklyStatusBadge = record.isChecked ? '<span class="badge bg-success">Checked</span>' : '<span class="badge bg-warning text-dark">Needs Check</span>';
-    return `<tr>
+    const lastActivityDateStr = record.lastActivityDate ? formatDate(record.lastActivityDate.toISOString().split('T')[0]) : 'N/A';
+    let weeklyStatusBadge;
+    let rowClass = '';
+    let actionButtons = '';
+
+    if (record.isChecked) {
+        weeklyStatusBadge = '<span class="badge bg-success">Checked</span>';
+        actionButtons = `<button class="btn btn-sm btn-info js-manage-treatment" data-record-id="${record.id}" data-sheep-id="${record.sheepId}" title="Log New Treatment"><i class="fas fa-notes-medical"></i> Manage</button>
+                         <button class="btn btn-sm btn-outline-primary js-edit-record" data-record-id="${record.id}" title="Edit Record"><i class="fas fa-edit"></i></button>`;
+    } else {
+        rowClass = 'table-warning-light'; // Highlight row for needs check
+        let daysOverdueText = '';
+        if (record.daysSinceLastCheck !== null && record.daysSinceLastCheck > 0) {
+            daysOverdueText = ` (${record.daysSinceLastCheck} day${record.daysSinceLastCheck > 1 ? 's' : ''} overdue)`;
+        } else if (record.daysSinceLastCheck === null) {
+            daysOverdueText = ' (No activity recorded)';
+        }
+        weeklyStatusBadge = `<span class="badge bg-warning text-dark">Needs Check${daysOverdueText}</span>`;
+        actionButtons = `<button class="btn btn-sm btn-success js-mark-checked" data-record-id="${record.id}" title="Mark as Checked Today"><i class="fas fa-check"></i> Mark Checked</button>
+                         <button class="btn btn-sm btn-info js-manage-treatment" data-record-id="${record.id}" data-sheep-id="${record.sheepId}" title="Log New Treatment"><i class="fas fa-notes-medical"></i> Manage</button>
+                         <button class="btn btn-sm btn-outline-primary js-edit-record" data-record-id="${record.id}" title="Edit Record"><i class="fas fa-edit"></i></button>`;
+    }
+
+    return `<tr class="${rowClass}">
         <td><strong>${record.sheepId}</strong></td>
         <td><span class="${getStatusClass(record.healthStatus)}">${record.healthStatus}</span></td>
-        <td>${lastActivityDateStr}</td>
+        <td class="text-nowrap">${lastActivityDateStr}</td>
         <td>${weeklyStatusBadge}</td>
-        <td>
-            <button class="btn btn-sm btn-info js-manage-treatment" data-record-id="${record.id}" data-sheep-id="${record.sheepId}" title="Log New Treatment"><i class="fas fa-notes-medical"></i> Manage</button>
-            <button class="btn btn-sm btn-outline-primary js-edit-record" data-record-id="${record.id}" title="Edit Record"><i class="fas fa-edit"></i></button>
-        </td>
+        <td>${actionButtons}</td>
     </tr>`;
 }
 
@@ -680,21 +1009,24 @@ function checkPreventativeCareReminders() {
 
     allRecords.forEach(record => {
         const dewormingDayDiff = getDayDiffFromLastDate(record.lastDewormingDate, 30);
-        if (dewormingDayDiff !== null && dewormingDayDiff <= 24) {
+        // Show reminders for anything due within the next 30 days or that is overdue
+        if (dewormingDayDiff !== null && dewormingDayDiff <= 30) {
             let status = '', message = '';
-            if (dewormingDayDiff < 0) { message = `Deworming is overdue by ${-dewormingDayDiff} day(s).`; }
-            else if (dewormingDayDiff === 0) { message = 'Deworming is due today.'; }
-            else { message = `Deworming due in ${dewormingDayDiff} day(s).`; }
-
-            if (dewormingDayDiff <= 5) { status = 'Overdue'; }
-            else { status = 'Upcoming'; }
+            if (dewormingDayDiff < 0) {
+                status = 'Overdue';
+                message = `Deworming is overdue by ${-dewormingDayDiff} day(s).`;
+            } else if (dewormingDayDiff === 0) {
+                status = 'Due Today';
+                message = 'Deworming is due today.';
+            } else {
+                status = 'Upcoming';
+                message = `Deworming due in ${dewormingDayDiff} day(s).`;
+            }
             reminders.push({ sheepId: record.sheepId, recordId: record.id, message, status });
         }
 
         let vaxDayDiff;
         if (record.manualVaccinationDueDate) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
             const dueDate = new Date(record.manualVaccinationDueDate + 'T00:00:00');
             if (!isNaN(dueDate.getTime())) {
                 vaxDayDiff = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
@@ -704,14 +1036,19 @@ function checkPreventativeCareReminders() {
         } else {
             vaxDayDiff = getDayDiffFromLastDate(record.lastVaccinationDate, 365);
         }
-        if (vaxDayDiff !== null && vaxDayDiff <= 24) {
+        // Show reminders for anything due within the next 30 days or that is overdue
+        if (vaxDayDiff !== null && vaxDayDiff <= 30) {
             let status = '', message = '';
-            if (vaxDayDiff < 0) { message = `Vaccination is overdue by ${-vaxDayDiff} day(s).`; }
-            else if (vaxDayDiff === 0) { message = 'Vaccination is due today.'; }
-            else { message = `Vaccination due in ${vaxDayDiff} day(s).`; }
-
-            if (vaxDayDiff <= 5) { status = 'Overdue'; }
-            else { status = 'Upcoming'; }
+            if (vaxDayDiff < 0) {
+                status = 'Overdue';
+                message = `Vaccination is overdue by ${-vaxDayDiff} day(s).`;
+            } else if (vaxDayDiff === 0) {
+                status = 'Due Today';
+                message = 'Vaccination is due today.';
+            } else {
+                status = 'Upcoming';
+                message = `Vaccination due in ${vaxDayDiff} day(s).`;
+            }
             reminders.push({ sheepId: record.sheepId, recordId: record.id, message, status });
         }
     });
@@ -771,30 +1108,56 @@ function updateWeeklyTrackingView(filter = currentWeeklyFilter) {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     sevenDaysAgo.setHours(0, 0, 0, 0);
 
-    let recordsWithStatus = allRecords.map(record => {
-        let lastActivityDate = new Date(record.dateRecorded + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-        if (record.treatments) {
-            Object.values(record.treatments).forEach(treatment => {
-                const treatmentDate = new Date(treatment.treatmentDate + 'T00:00:00');
-                if (!isNaN(treatmentDate.getTime()) && treatmentDate > lastActivityDate) {
-                    lastActivityDate = treatmentDate;
-                }
-            });
+    let recordsWithStatus = allRecords.map(record => {
+        const lastActivityDate = gatherAllActivityDates(record);
+        let isChecked = false;
+        let daysSinceLastCheck = null;
+
+        if (lastActivityDate) {
+            isChecked = lastActivityDate >= sevenDaysAgo;
+            daysSinceLastCheck = Math.floor((today.getTime() - lastActivityDate.getTime()) / (1000 * 60 * 60 * 24));
         }
 
-        const isChecked = lastActivityDate >= sevenDaysAgo;
-        return { ...record, lastActivityDate, isChecked };
+        return { ...record, lastActivityDate, isChecked, daysSinceLastCheck };
     });
 
     let filteredRecords = recordsWithStatus.filter(r => {
         if (filter === 'all') return true;
         if (filter === 'checked') return r.isChecked;
         if (filter === 'needs_check') return !r.isChecked;
+        // Also filter out records with no activity date if 'needs_check' is selected
+        if (filter === 'needs_check' && !r.lastActivityDate) return true;
         return false;
     });
 
-    filteredRecords.sort((a, b) => a.sheepId.localeCompare(b.sheepId, undefined, { numeric: true }));
+    // Sort: needs_check first, then by lastActivityDate (oldest first for needs_check, newest for checked), then by sheepId
+    filteredRecords.sort((a, b) => {
+        // Primary sort: Needs check first
+        if (!a.isChecked && b.isChecked) return -1; // a needs check, b is checked -> a comes first
+        if (a.isChecked && !b.isChecked) return 1;  // a is checked, b needs check -> b comes first
+
+        // Secondary sort (only if both have same isChecked status):
+        if (!a.isChecked && !b.isChecked) { // Both need check
+            // Handle null lastActivityDate (never checked)
+            if (a.lastActivityDate === null && b.lastActivityDate !== null) return -1;
+            if (a.lastActivityDate !== null && b.lastActivityDate === null) return 1;
+            if (a.lastActivityDate === null && b.lastActivityDate === null) return a.sheepId.localeCompare(b.sheepId, undefined, { numeric: true }); // Both null, fallback to ID
+
+            // Sort by lastActivityDate (oldest first for needs_check)
+            return a.lastActivityDate.getTime() - b.lastActivityDate.getTime();
+        }
+
+        if (a.isChecked && b.isChecked) { // Both are checked
+            // Sort by lastActivityDate (newest first for checked, to show most recently checked at top of 'checked' list)
+            return b.lastActivityDate.getTime() - a.lastActivityDate.getTime();
+        }
+
+        // Tertiary sort (fallback for all other cases): by sheepId
+        return a.sheepId.localeCompare(b.sheepId, undefined, { numeric: true });
+    });
 
     tableBody.innerHTML = filteredRecords.length > 0 ? filteredRecords.map(r => renderWeeklyRow(r)).join('') : `<tr><td colspan="5" class="text-center">No sheep match the filter criteria.</td></tr>`;
 }
@@ -811,6 +1174,9 @@ function updateScheduleView(filter = currentScheduleFilter) {
     const tableBody = document.getElementById('scheduleTableBody');
     const sortedRecords = [...allRecords].sort((a, b) => a.sheepId.localeCompare(b.sheepId, undefined, { numeric: true }));
 
+    let overdueCount = 0;
+    let upcomingCount = 0;
+
     let recordsToDisplay = sortedRecords.filter(record => {
         if (filter === 'all') return true;
 
@@ -825,6 +1191,23 @@ function updateScheduleView(filter = currentScheduleFilter) {
         }
         return false;
     });
+    
+    // Calculate counts for all sheep regardless of current filter
+    sortedRecords.forEach(record => {
+        const dewormStatus = getScheduleStatus(record.lastDewormingDate, 30, null);
+        const vaxStatus = getScheduleStatus(record.lastVaccinationDate, 365, record.manualVaccinationDueDate);
+
+        if (dewormStatus.isOverdue || vaxStatus.isOverdue) {
+            overdueCount++;
+        }
+        if ((dewormStatus.isUpcoming && !dewormStatus.isOverdue) || (vaxStatus.isUpcoming && !vaxStatus.isOverdue)) {
+            upcomingCount++;
+        }
+    });
+
+    // Update the counts on the buttons
+    updateElement('scheduleOverdueCount', overdueCount);
+    updateElement('scheduleUpcomingCount', upcomingCount);
 
     if (recordsToDisplay.length === 0) {
         tableBody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-muted">No sheep match the filter criteria.</td></tr>`;
@@ -868,7 +1251,7 @@ function getScheduleStatus(lastDateString, daysUntilDue, manualDueDateString) {
         return { status: 'Overdue', fullText: `Was due on ${formattedDueDate}`, isOverdue: true, isUpcoming: false, dueDate };
     } else if (dayDiff === 0) {
         return { status: 'Upcoming', fullText: `Due today (${formattedDueDate})`, isOverdue: false, isUpcoming: true, dueDate };
-    } else if (dayDiff <= 24) {
+    } else if (dayDiff <= 30) { // Changed from 24 to 30 for "Upcoming (30 Days)"
         const dueText = `Due in ${dayDiff} day(s)`;
         return { status: 'Upcoming', fullText: `${dueText} (${formattedDueDate})`, isOverdue: false, isUpcoming: true, dueDate };
     } else {
@@ -921,6 +1304,27 @@ function openBatchLogModal() {
     document.getElementById('batchTreatmentForm').reset();
     document.getElementById('batchTreatmentDate').valueAsDate = new Date();
     batchTreatmentModal.show();
+}
+
+/**
+ * Gathers all relevant activity dates for a sheep record and returns the latest one.
+ * Includes initial record date, weight entries, and treatment dates.
+ * @param {object} record - The sheep record object.
+ * @returns {Date | null} The latest activity date as a Date object, or null if no valid dates found.
+ */
+function gatherAllActivityDates(record) {
+    let dates = [];
+    if (record.dateRecorded) dates.push(new Date(record.dateRecorded + 'T00:00:00'));
+    if (record.weights) {
+        Object.values(record.weights).forEach(w => { if (w.date) dates.push(new Date(w.date + 'T00:00:00')); });
+    }
+    if (record.treatments) {
+        Object.values(record.treatments).forEach(t => { if (t.treatmentDate) dates.push(new Date(t.treatmentDate + 'T00:00:00')); });
+    }
+    // Filter out invalid dates and sort to get the latest
+    const validDates = dates.filter(d => !isNaN(d.getTime()));
+    if (validDates.length === 0) return null;
+    return new Date(Math.max(...validDates));
 }
 
 // --- WEIGHT TRACKING SECTION ---
@@ -1070,8 +1474,23 @@ function renderWeightDataTable(weightPoints, recordId, containerId = 'weightTabl
         container.innerHTML = '<p>No weight history recorded.</p>';
         return;
     }
-    let tableHtml = `<table class="table table-sm table-striped"><thead><tr><th>Date</th><th>Weight (kg)</th><th>Source</th><th>Actions</th></tr></thead><tbody>`;
-    weightPoints.forEach(p => {
+    let tableHtml = `<table class="table table-sm table-striped"><thead><tr><th>Date</th><th>Weight (kg)</th><th class="text-center">Period Gain (Weekly)</th><th>Source</th><th>Actions</th></tr></thead><tbody>`;
+    weightPoints.forEach((p, index) => {
+        let weeklyGainHtml = '<td class="text-center">-</td>'; // Default for the first entry
+
+        if (index > 0) {
+            const prevPoint = weightPoints[index - 1];
+            const weightGain = p.weight - prevPoint.weight;
+            const timeDiffDays = (p.date.getTime() - prevPoint.date.getTime()) / (1000 * 60 * 60 * 24);
+
+            if (timeDiffDays > 0) {
+                const weeklyGainKg = (weightGain / timeDiffDays) * 7;
+                const gainClass = weeklyGainKg >= 0 ? 'text-success' : 'text-danger';
+                const gainSign = weeklyGainKg >= 0 ? '+' : '';
+                weeklyGainHtml = `<td class="text-center fw-bold ${gainClass}">${gainSign}${weeklyGainKg.toFixed(3)} kg/wk</td>`;
+            }
+        }
+
         let sourceText = '';
         let actions = '';
         switch (p.source) {
@@ -1088,7 +1507,7 @@ function renderWeightDataTable(weightPoints, recordId, containerId = 'weightTabl
                 actions = `<button class="btn btn-sm btn-outline-danger js-delete-weight" data-record-id="${recordId}" data-entry-id="${p.id}" data-source="treatment" title="This is legacy data. Deleting it will remove the weight from the associated treatment log."><i class="fas fa-trash"></i></button>`;
                 break;
         }
-        tableHtml += `<tr><td>${formatDate(p.date.toISOString().split('T')[0])}</td><td>${p.weight.toFixed(1)}</td><td>${sourceText}</td><td>${actions}</td></tr>`;
+        tableHtml += `<tr><td>${formatDate(p.date.toISOString().split('T')[0])}</td><td>${p.weight.toFixed(1)} kg</td>${weeklyGainHtml}<td>${sourceText}</td><td>${actions}</td></tr>`;
     });
     tableHtml += `</tbody></table>`;
     container.innerHTML = tableHtml;
@@ -1107,16 +1526,17 @@ function calculateAndDisplayWeightStats(allWeightPoints, containerId = 'weightSt
     const weightGain = lastPoint.weight - firstPoint.weight;
     const timeDiffDays = (lastPoint.date.getTime() - firstPoint.date.getTime()) / (1000 * 60 * 60 * 24);
 
-    let awg = 0;
+    let awg = 0; // Average Weekly Gain
     if (timeDiffDays > 0) {
-        awg = (weightGain / timeDiffDays) * 7; // in kg/week
+        const adg = weightGain / timeDiffDays; // in kg/day
+        awg = adg * 7; // in kg/week
     }
 
     container.innerHTML = `
         <h5 class="card-title mb-3">Weight Statistics</h5>
         <div class="mb-3">
-            <p class="mb-0 text-muted">Average Weekly Gain</p>
-            <h3 class="text-success">${awg.toFixed(2)} kg/week</h3>
+            <p class="mb-0 text-muted">Average Weekly Gain (AWG)</p>
+            <h3 class="text-success">${awg.toFixed(3)} kg/week</h3>
         </div>
         <div class="mb-3">
             <p class="mb-0 text-muted">Net Weight Gain</p>
@@ -1132,23 +1552,112 @@ function calculateAndDisplayWeightStats(allWeightPoints, containerId = 'weightSt
 
 function updateFlockStatus() {
     const total = allRecords.length;
-    const healthy = allRecords.filter(r => r.healthStatus === 'Healthy' || r.healthStatus === 'Recovering').length;
+    const healthyAndRecovering = allRecords.filter(r => r.healthStatus === 'Healthy' || r.healthStatus === 'Recovering').length;
     const corentin = allRecords.filter(r => r.healthStatus === 'Corentin').length;
     const treatment = allRecords.filter(r => r.healthStatus === 'Under Treatment').length;
     const pregnant = allRecords.filter(r => r.healthStatus === 'Pregnant').length;
     const maleCount = allRecords.filter(r => r.gender === 'Male').length;
     const femaleCount = allRecords.filter(r => r.gender === 'Female').length;
+    const totalValue = allRecords.reduce((sum, record) => sum + (parseFloat(record.buyingPrice) || 0), 0);
 
     updateElement('totalCount', total);
-    updateElement('healthyCount', healthy);
+    updateElement('healthyCount', healthyAndRecovering);
     updateElement('sickCount', corentin);
     updateElement('treatmentCount', treatment);
     updateElement('pregnantCount', pregnant);
     updateElement('maleCount', maleCount);
     updateElement('femaleCount', femaleCount);
+    updateElement('flockValue', `₹${totalValue.toFixed(2)}`);
+
+    // --- Pie Chart & Dashboard Summary Updates ---
+
+    // 1. Update Health Status Pie Chart
+    const healthyCount = allRecords.filter(r => r.healthStatus === 'Healthy').length;
+    const recoveringCount = allRecords.filter(r => r.healthStatus === 'Recovering').length;
+    const healthChartData = {
+        healthy: healthyCount,
+        recovering: recoveringCount,
+        underTreatment: treatment,
+        corentin: corentin,
+        pregnant: pregnant
+    };
+    renderHealthStatusPieChart(healthChartData);
+
+    // 2. Update Dashboard's Monthly Sales Summary
+    const monthlyTotals = {};
+    masterSoldRecords.forEach(record => { // Changed from soldRecords to masterSoldRecords
+        try {
+            if (record.saleDate && record.salePrice != null) {
+                const saleDate = new Date(record.saleDate + 'T00:00:00');
+                if (!isNaN(saleDate.getTime())) {
+                    const monthKey = `${saleDate.getFullYear()}-${String(saleDate.getMonth() + 1).padStart(2, '0')}`;
+                    if (!monthlyTotals[monthKey]) monthlyTotals[monthKey] = { sales: 0, profit: 0 };
+                    const salePrice = parseFloat(record.salePrice) || 0;
+                    const buyingPrice = parseFloat(record.buyingPrice) || 0;
+                    const treatmentCosts = (record.treatments && typeof record.treatments === 'object') ? Object.values(record.treatments).reduce((sum, t) => sum + (parseFloat(t.cost) || 0), 0) : 0;
+                    const totalCost = buyingPrice + treatmentCosts;
+                    const profit = salePrice - totalCost;
+                    monthlyTotals[monthKey].sales += salePrice;
+                    monthlyTotals[monthKey].profit += profit;
+                }
+            }
+        } catch (e) { /* ignore records that fail to process */ }
+    });
+    renderMonthlySalesSummary(monthlyTotals, 'newest');
 }
 
-function calculateAWG(record) {
+/**
+ * Renders the health status pie chart on the main dashboard.
+ * @param {object} healthData - An object with counts for each health status.
+ */
+function renderHealthStatusPieChart(healthData) {
+    const ctx = document.getElementById('healthStatusPieChart')?.getContext('2d');
+    const legendContainer = document.getElementById('pieChartLegend');
+    if (!ctx || !legendContainer) return;
+
+    if (healthStatusPieChartInstance) healthStatusPieChartInstance.destroy();
+
+    const labels = ['Healthy', 'Recovering', 'Under Treatment', 'Corentin', 'Pregnant'];
+    const data = [healthData.healthy, healthData.recovering, healthData.underTreatment, healthData.corentin, healthData.pregnant];
+    const backgroundColors = ['#28a745', '#17a2b8', '#ffc107', '#dc3545', '#6f42c1'];
+
+    const filteredLabels = [], filteredData = [], filteredColors = [];
+    data.forEach((value, index) => {
+        if (value > 0) {
+            filteredLabels.push(labels[index]);
+            filteredData.push(value);
+            filteredColors.push(backgroundColors[index]);
+        }
+    });
+
+    if (filteredData.length === 0) {
+        legendContainer.innerHTML = '<p class="text-muted text-center">No active sheep with health data to display.</p>';
+        if (ctx.canvas) ctx.canvas.style.display = 'none';
+        return;
+    }
+    if (ctx.canvas) ctx.canvas.style.display = 'block';
+
+    healthStatusPieChartInstance = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: filteredLabels,
+            datasets: [{
+                data: filteredData,
+                backgroundColor: filteredColors,
+                borderWidth: 0 // Removes the white separator lines
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { backgroundColor: '#333', titleFont: { size: 14 }, bodyFont: { size: 12 }, padding: 10, cornerRadius: 4, bodySpacing: 5 } }
+        }
+    });
+
+    legendContainer.innerHTML = filteredLabels.map((label, index) => `<span class="me-3"><i class="fas fa-circle fa-xs" style="color: ${filteredColors[index]};"></i> ${label}</span>`).join('');
+}
+
+function calculateADG(record) {
     const allWeightPoints = gatherAllWeightData(record);
     if (allWeightPoints.length < 2) {
         return null;
@@ -1161,36 +1670,192 @@ function calculateAWG(record) {
     const timeDiffDays = (lastPoint.date.getTime() - firstPoint.date.getTime()) / (1000 * 60 * 60 * 24);
 
     if (timeDiffDays > 0) {
-        return (weightGain / timeDiffDays) * 7; // in kg/week
+        return weightGain / timeDiffDays; // in kg/day
     }
     return null;
 }
 
-function updateGrowthAnalytics() {
-    const fastestList = document.getElementById('fastestGrowersList');
-    const slowestList = document.getElementById('slowestGrowersList');
-    fastestList.innerHTML = '<li class="list-group-item text-muted">Calculating...</li>';
-    slowestList.innerHTML = '<li class="list-group-item text-muted">Calculating...</li>';
-
-    const sheepWithAwg = allRecords
-        .map(record => ({ sheepId: record.sheepId, awg: calculateAWG(record) }))
-        .filter(item => item.awg !== null && !isNaN(item.awg));
-
-    if (sheepWithAwg.length === 0) {
-        const noDataHtml = '<li class="list-group-item text-muted">Not enough data for weekly gain calculation.</li>';
-        fastestList.innerHTML = noDataHtml;
-        slowestList.innerHTML = noDataHtml;
+/**
+ * Fetches, calculates, and displays the growth analytics dashboard.
+ * This is the main entry point when the Growth section is shown.
+ */
+function displayGrowthAnalytics() {
+    const tableBody = document.getElementById('growthAnalyticsTableBody');
+    if (!tableBody) {
         return;
     }
 
-    const sortedFastest = [...sheepWithAwg].sort((a, b) => b.awg - a.awg);
-    fastestList.innerHTML = sortedFastest.map(s => `<li class="list-group-item d-flex justify-content-between align-items-center">${s.sheepId} <span class="badge bg-success rounded-pill">${s.awg.toFixed(2)} kg/week</span></li>`).join('') || '<li class="list-group-item text-muted">No sheep with calculated growth.</li>';
+    // 1. Calculate raw growth data from master records
+    state.growthAnalyticsData = allRecords.map(record => {
+        const allWeightPoints = gatherAllWeightData(record);
+        if (allWeightPoints.length < 2) {
+            return { id: record.id, sheepId: record.sheepId, gender: record.gender, breed: record.breed, hasData: false };
+        }
 
-    const sortedSlowest = [...sheepWithAwg].sort((a, b) => a.awg - a.awg);
-    slowestList.innerHTML = sortedSlowest.map(s => {
-        const badgeClass = s.awg < 0 ? 'bg-danger' : 'bg-warning text-dark';
-        return `<li class="list-group-item d-flex justify-content-between align-items-center">${s.sheepId} <span class="badge ${badgeClass} rounded-pill">${s.awg.toFixed(2)} kg/week</span></li>`;
-    }).join('') || '<li class="list-group-item text-muted">No sheep with calculated growth.</li>';
+        const firstPoint = allWeightPoints[0];
+        const lastPoint = allWeightPoints[allWeightPoints.length - 1];
+        const weightGain = lastPoint.weight - firstPoint.weight;
+        const timeDiffDays = Math.max(1, (lastPoint.date.getTime() - firstPoint.date.getTime()) / (1000 * 60 * 60 * 24));
+        const adg = weightGain / timeDiffDays;
+
+        return {
+            id: record.id,
+            sheepId: record.sheepId,
+            gender: record.gender,
+            breed: record.breed,
+            hasData: true,
+            netGain: weightGain,
+            durationDays: timeDiffDays,
+            startWeight: firstPoint.weight,
+            latestWeight: lastPoint.weight,
+            adg: adg // in kg/day
+        };
+    });
+
+    // 2. Populate Breed Filter Dropdown
+    const breedFilter = document.getElementById('growthBreedFilter');
+    const breeds = [...new Set(state.growthAnalyticsData.map(s => s.breed).filter(Boolean))].sort();
+    breedFilter.innerHTML = '<option value="all">All Breeds</option>';
+    breeds.forEach(breed => {
+        const option = document.createElement('option');
+        option.value = breed;
+        option.textContent = breed;
+        breedFilter.appendChild(option);
+    });
+
+    // 3. Reset filters to their default state
+    document.getElementById('growthGenderFilter').value = 'all';
+    breedFilter.value = 'all';
+    const searchInput = document.querySelector('input[data-table-body-id="growthAnalyticsTableBody"]');
+    if (searchInput) searchInput.value = '';
+    state.currentGrowthFilters = { gender: 'all', breed: 'all', searchTerm: '' };
+
+    // 4. Perform initial render
+    applyGrowthFiltersAndRender();
+}
+
+/**
+ * Applies all active filters to the growth analytics data and re-renders the table.
+ * This is the central function for any UI update on the growth table.
+ */
+function applyGrowthFiltersAndRender() {
+    if (!state.growthAnalyticsData) return;
+
+    // Filter the data
+    let filteredData = state.growthAnalyticsData.filter(sheep => {
+        const { gender, breed, searchTerm } = state.currentGrowthFilters;
+        const searchMatch = searchTerm ? sheep.sheepId.toLowerCase().includes(searchTerm) : true;
+        const genderMatch = gender === 'all' || sheep.gender === gender;
+        const breedMatch = breed === 'all' || sheep.breed === breed;
+        return searchMatch && genderMatch && breedMatch;
+    });
+
+    // Sort the filtered data
+    const { column, direction } = growthAnalyticsSort;
+    filteredData.sort((a, b) => {
+        if (!a.hasData && !b.hasData) return 0;
+        if (!a.hasData) return 1;
+        if (!b.hasData) return -1;
+
+        let valA = a[column];
+        let valB = b[column];
+
+        if (typeof valA === 'string') {
+            return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        } else {
+            return direction === 'asc' ? (valA || -Infinity) - (valB || -Infinity) : (valB || -Infinity) - (valA || -Infinity);
+        }
+    });
+
+    renderGrowthAnalyticsTable(filteredData);
+}
+
+/**
+ * Renders the HTML for the growth analytics table from a given dataset.
+ * @param {Array} data - The pre-filtered and pre-sorted array of sheep growth data.
+ */
+function renderGrowthAnalyticsTable(data) {
+    const tableBody = document.getElementById('growthAnalyticsTableBody');
+    if (!tableBody) return;
+
+    if (data.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-4">No records match the current filters.</td></tr>';
+        return;
+    }
+
+    const rowsHtml = data.map((stat, index) => {
+        if (!stat.hasData) {
+            return `<tr>
+                        <td class="text-center text-muted align-middle">--</td>
+                        <td>
+                            <a href="#" class="fw-bold profile-link" data-sheep-id="${stat.id}">${stat.sheepId}</a>
+                            <div class="small text-muted">${stat.breed || 'N/A'}</div>
+                        </td>
+                        <td colspan="3" class="text-center text-muted">Not enough weight data</td>
+                    </tr>`;
+        }
+
+        const gainClass = stat.netGain >= 0 ? 'text-success' : 'text-danger';
+        const netGainSign = stat.netGain >= 0 ? '+' : '';
+        const rank = index + 1;
+        let rankClass = 'text-dark';
+        if (rank === 1) rankClass = 'text-success fw-bold';
+        if (rank === 2) rankClass = 'text-primary fw-bold';
+        if (rank === 3) rankClass = 'text-info fw-bold';
+
+        // Calculate and format weekly gain for better readability
+        const weeklyGainKg = stat.adg * 7;
+        const weeklyGainClass = weeklyGainKg >= 0 ? 'text-success' : 'text-danger';
+        const weeklyGainSign = weeklyGainKg >= 0 ? '+' : '';
+        let weeklyGainValue;
+        let weeklyGainUnit;
+
+        if (Math.abs(weeklyGainKg) >= 1.0) {
+            weeklyGainValue = weeklyGainKg.toFixed(2);
+            weeklyGainUnit = 'kg';
+        } else {
+            weeklyGainValue = (weeklyGainKg * 1000).toFixed(0);
+            weeklyGainUnit = 'g';
+        }
+
+        return `<tr>
+                    <td class="text-center align-middle"><h5 class="mb-0 ${rankClass}">${rank}</h5></td>
+                    <td class="align-middle">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3"><i class="fas fa-sheep fa-2x text-muted"></i></div>
+                            <div>
+                                <a href="#" class="fw-bold text-dark text-decoration-none profile-link" data-sheep-id="${stat.id}">${stat.sheepId}</a>
+                                <div class="small text-muted">${stat.gender || 'N/A'}, ${stat.breed || 'N/A'}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="align-middle text-center"><span class="badge bg-light text-dark fs-6">${(stat.startWeight || 0).toFixed(1)} kg &rarr; ${(stat.latestWeight || 0).toFixed(1)} kg</span><div class="small text-muted">over ${stat.durationDays} days</div></td>
+                    <td class="align-middle text-center"><h5 class="mb-0 fw-bold ${gainClass}">${netGainSign}${stat.netGain.toFixed(1)} kg</h5></td>
+                    <td class="align-middle text-center">
+                        <h5 class="mb-0 fw-bold ${weeklyGainClass}">${weeklyGainSign}${weeklyGainValue} ${weeklyGainUnit}</h5>
+                        <div class="small text-muted">per week</div>
+                    </td>
+                </tr>`;
+    }).join('');
+
+    tableBody.innerHTML = rowsHtml;
+
+    // Update sort icons in the header
+    const tableHead = document.querySelector('#growthAnalyticsTable thead');
+    if (tableHead) {
+        tableHead.querySelectorAll('th.sortable').forEach(th => {
+            th.classList.remove('active');
+            th.querySelector('.sort-icon').innerHTML = '';
+        });
+        const activeTh = tableHead.querySelector(`th[data-sort="${growthAnalyticsSort.column}"]`);
+        if (activeTh) {
+            activeTh.classList.add('active');
+            const iconEl = activeTh.querySelector('.sort-icon');
+            if (iconEl) {
+                iconEl.innerHTML = growthAnalyticsSort.direction === 'asc' ? ' <i class="fas fa-sort-up"></i>' : ' <i class="fas fa-sort-down"></i>';
+            }
+        }
+    }
 }
 
 // --- FORM & MODAL HANDLERS ---
@@ -1378,22 +2043,26 @@ function openTreatmentLog(recordId, sheepId) {
         const treatmentsData = snapshot.val();
         if (treatmentsData) {
             const treatments = Object.entries(treatmentsData).sort((a, b) => new Date(b[1].treatmentDate) - new Date(a[1].treatmentDate));
-            treatmentLogTbody.innerHTML = treatments.map(([id, t]) => `
+            treatmentLogTbody.innerHTML = treatments.map(([id, t]) => {
+                const costHtml = t.cost ? `₹${parseFloat(t.cost).toFixed(2)}` : 'N/A';
+                const typeHtml = t.treatmentType || t.type || 'General'; // Backward compatibility for 'type'
+                return `
                 <tr>
                     <td>${formatDate(t.treatmentDate)}</td>
-                    <td>${t.cost ? `₹${t.cost.toFixed(2)}` : ''}</td>
+                    <td>${typeHtml}</td>
+                    <td>${costHtml}</td>
                     <td>${t.symptoms || ''}</td>
                     <td>${t.medication || ''}</td>
                     <td>${t.dosage || ''}</td>
                     <td>${t.treatmentNotes || ''}</td>
                     <td>
-                        <button class="btn btn-sm btn-outline-primary js-edit-treatment" data-record-id="${recordId}" data-entry-id="${id}"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-sm btn-outline-danger js-delete-treatment" data-record-id="${recordId}" data-entry-id="${id}"><i class="fas fa-trash"></i></button>
+                        <button class="btn btn-sm btn-outline-primary js-edit-treatment" data-record-id="${recordId}" data-entry-id="${id}" title="Edit Entry"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-outline-danger js-delete-treatment" data-record-id="${recordId}" data-entry-id="${id}" title="Delete Entry"><i class="fas fa-trash"></i></button>
                     </td>
-                </tr>
-            `).join('');
+                </tr>`;
+            }).join('');
         } else {
-            treatmentLogTbody.innerHTML = '<tr><td colspan="7" class="text-center">No treatments logged.</td></tr>';
+            treatmentLogTbody.innerHTML = '<tr><td colspan="8" class="text-center">No treatments logged.</td></tr>';
         }
     });
 
@@ -1495,7 +2164,7 @@ function resetTreatmentForm() {
 
 function handleBatchSaveTreatment(e) {
     e.preventDefault();
-    const selectedCheckboxes = document.querySelectorAll('#scheduleTableBody .sheep-select-checkbox:checked');
+    const selectedCheckboxes = document.querySelectorAll('#scheduleTableBody .schedule-checkbox:checked');
     const recordIds = Array.from(selectedCheckboxes).map(cb => cb.dataset.id);
 
     const treatmentType = document.getElementById('batchTreatmentType').value;
@@ -1606,6 +2275,7 @@ function updateProfileView() {
         sortedActive.forEach(record => {
             const option = document.createElement('option');
             option.value = record.id;
+            option.dataset.breed = record.breed || 'N/A';
             option.textContent = record.sheepId;
             activeGroup.appendChild(option);
         });
@@ -1619,6 +2289,7 @@ function updateProfileView() {
         sortedSold.forEach(record => {
             const option = document.createElement('option');
             option.value = record.id;
+            option.dataset.breed = record.breed || 'N/A';
             option.textContent = record.sheepId;
             soldGroup.appendChild(option);
         });
@@ -1632,6 +2303,7 @@ function updateProfileView() {
         sortedArchived.forEach(record => {
             const option = document.createElement('option');
             option.value = record.id;
+            option.dataset.breed = record.breed || 'N/A';
             option.textContent = record.sheepId;
             archivedGroup.appendChild(option);
         });
@@ -1713,46 +2385,71 @@ function renderProfileForSheep(recordId) {
     updateElement('profileVaccinationNotes', record.lastVaccinationNotes || 'No notes recorded.');
 
     // --- Right Column Renders ---
-    renderWeightProfile(record);
-    renderTreatmentProfile(record);
+    renderProfileWeightTabContent(record);
+    renderProfileTreatmentTabContent(record);
     updateProfileNavButtons();
 }
 
-function renderWeightProfile(record) {
+/**
+ * Renders the content for the "Growth & Weight" tab on the profile page.
+ * This includes the stat cards, the weight chart, and the weight log table.
+ * @param {object} record - The full sheep record object.
+ */
+function renderProfileWeightTabContent(record) {
     const chartContainer = document.getElementById('profileWeightChartContainer');
+    const tableContainer = document.getElementById('profileWeightTableContainer');
+
+    // Clear previous content to prevent artifacts
+    chartContainer.innerHTML = '<canvas id="profileWeightChart"></canvas>';
+    tableContainer.innerHTML = '';
 
     const startDate = new Date(record.dateRecorded + 'T00:00:00');
     if (isNaN(startDate.getTime())) {
         chartContainer.innerHTML = '<div class="alert alert-warning">Cannot display weight chart due to invalid start date.</div>';
+        renderProfileWeightStats([]); // Reset stats to N/A
         return;
     }
 
     const allWeightPoints = gatherAllWeightData(record);
-    renderWeightDataTable(allWeightPoints, record.id, 'profileWeightTableContainer');
-    calculateAndDisplayWeightStats(allWeightPoints, 'profileWeightStatsBody');
+    
+    // Populate the four stat cards at the top of the tab
+    renderProfileWeightStats(allWeightPoints);
 
+    // Render the detailed weight log table
+    renderWeightDataTable(allWeightPoints, record.id, 'profileWeightTableContainer');
+
+    // Prepare data for the chart
     const chartPoints = allWeightPoints.map(dp => ({ x: (dp.date.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 7), y: dp.weight }));
 
     if (chartPoints.length < 1) {
         chartContainer.innerHTML = '<div class="alert alert-info text-center h-100 d-flex align-items-center justify-content-center">No weight data to display.</div>';
         if (profileWeightChart) { profileWeightChart.destroy(); profileWeightChart = null; }
         return;
-    } else {
-        chartContainer.innerHTML = '<canvas id="profileWeightChart"></canvas>';
     }
-
+    
     const ctx = document.getElementById('profileWeightChart').getContext('2d');
     if (profileWeightChart) { profileWeightChart.destroy(); }
 
     profileWeightChart = new Chart(ctx, {
         type: 'line',
-        data: { datasets: [{ label: `Weight (kg) for ${record.sheepId}`, data: chartPoints, borderColor: '#0d6efd', backgroundColor: 'rgba(13, 110, 253, 0.1)', fill: true, tension: 0.1, pointRadius: 5, pointHoverRadius: 7 }] },
+        data: { 
+            datasets: [{ 
+                label: `Weight (kg) for ${record.sheepId}`, 
+                data: chartPoints, 
+                borderColor: '#0d6efd', 
+                backgroundColor: 'rgba(13, 110, 253, 0.1)', 
+                fill: true, 
+                tension: 0.1, 
+                pointRadius: 5, 
+                pointHoverRadius: 7 
+            }] 
+        },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
                 x: { type: 'linear', position: 'bottom', title: { display: true, text: 'Weeks Since Record Start Date' }, min: 0 },
-                y: { title: { display: true, text: 'Weight (kg)' }, beginAtZero: true }
+                y: { title: { display: true, text: 'Weight (kg)' } }
             },
             plugins: { tooltip: { callbacks: {
                 title: context => `Week ${context[0].raw.x.toFixed(1)}`,
@@ -1762,23 +2459,96 @@ function renderWeightProfile(record) {
     });
 }
 
-function renderTreatmentProfile(record) {
+/**
+ * Renders the content for the "Treatment History" tab on the profile page.
+ * @param {object} record - The full sheep record object.
+ */
+function renderProfileTreatmentTabContent(record) {
     const tbody = document.getElementById('profileTreatmentHistoryTbody');
     const treatments = record.treatments ? Object.values(record.treatments).sort((a, b) => new Date(b.treatmentDate) - new Date(a.treatmentDate)) : [];
 
     if (treatments.length > 0) {
-        tbody.innerHTML = treatments.map(entry => `<tr>
-            <td>${formatDate(entry.treatmentDate)}</td>
-            <td>${entry.treatmentType || 'General'}</td>
-            <td>${entry.cost ? `₹${entry.cost.toFixed(2)}` : ''}</td>
-            <td>${entry.symptoms || ''}</td>
-            <td>${entry.medication || ''}</td>
-            <td>${entry.dosage || ''}</td>
-            <td>${entry.treatmentNotes || ''}</td>
-        </tr>`).join('');
+        tbody.innerHTML = treatments.map(entry => {
+            const costHtml = entry.cost ? `₹${parseFloat(entry.cost).toFixed(2)}` : 'N/A';
+            const typeHtml = entry.type || entry.treatmentType || 'General';
+            return `<tr>
+                <td>${formatDate(entry.treatmentDate)}</td>
+                <td>${typeHtml}</td>
+                <td>${costHtml}</td>
+                <td>${entry.symptoms || ''}</td>
+                <td>${entry.medication || ''}</td>
+                <td>${entry.dosage || ''}</td>
+                <td>${entry.treatmentNotes || ''}</td>
+            </tr>`;
+        }).join('');
     } else {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center">No treatment history recorded.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center p-4">No treatment history recorded.</td></tr>';
     }
+}
+
+/**
+ * Calculates and populates the four main stat cards in the profile's weight tab.
+ * @param {Array} allWeightPoints - A sorted array of weight data points.
+ */
+function renderProfileWeightStats(allWeightPoints) {
+    const container = document.getElementById('profileWeightStatsContainer');
+    if (!container) {
+        console.error("UI Error: The element with ID 'profileWeightStatsContainer' was not found. The new growth summary cannot be displayed.");
+        return;
+    }
+
+    if (allWeightPoints.length < 2) {
+        let initialWeightHtml = '';
+        if (allWeightPoints.length === 1) {
+            const firstPoint = allWeightPoints[0];
+            initialWeightHtml = `<p class="mb-0 mt-3"><strong>Initial Weight:</strong> ${firstPoint.weight.toFixed(1)} kg on ${formatDate(firstPoint.date.toISOString().split('T')[0])}</p>`;
+        }
+        container.innerHTML = `
+            <div class="card-body text-center">
+                <h5 class="card-title mb-2">Growth Summary</h5>
+                <p class="card-text text-muted">At least two weight entries are needed to calculate growth statistics.</p>
+                ${initialWeightHtml}
+            </div>
+        `;
+        return;
+    }
+
+    const firstPoint = allWeightPoints[0];
+    const lastPoint = allWeightPoints[allWeightPoints.length - 1];
+
+    const weightGain = lastPoint.weight - firstPoint.weight;
+    const timeDiffDays = Math.max(1, (lastPoint.date.getTime() - firstPoint.date.getTime()) / (1000 * 60 * 60 * 24));
+    const awg = (weightGain / timeDiffDays) * 7; // in kg/week
+
+    const gainClass = weightGain >= 0 ? 'text-success' : 'text-danger';
+    const gainSign = weightGain >= 0 ? '+' : '';
+
+    container.innerHTML = `
+        <div class="card-body">
+            <div class="row text-center align-items-center">
+                <div class="col-md-6 col-lg-3 mb-3 mb-lg-0 border-end-lg">
+                    <p class="mb-1 text-muted small text-uppercase">Avg. Weekly Gain</p>
+                    <h4 class="fw-bold text-primary mb-0">${awg.toFixed(3)}</h4>
+                    <span class="small text-muted">kg/week</span>
+                </div>
+                <div class="col-md-6 col-lg-3 mb-3 mb-lg-0 border-end-lg">
+                    <p class="mb-1 text-muted small text-uppercase">Total Gain</p>
+                    <h4 class="fw-bold ${gainClass} mb-0">${gainSign}${weightGain.toFixed(1)} kg</h4>
+                    <span class="small text-muted">over ${timeDiffDays.toFixed(0)} days</span>
+                </div>
+                <div class="col-md-6 col-lg-3 mb-3 mb-md-0 border-end-lg">
+                    <p class="mb-1 text-muted small text-uppercase">Start Weight</p>
+                    <h4 class="fw-bold mb-0">${firstPoint.weight.toFixed(1)} kg</h4>
+                    <span class="small text-muted">${formatDate(firstPoint.date.toISOString().split('T')[0])}</span>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <p class="mb-1 text-muted small text-uppercase">Latest Weight</p>
+                    <h4 class="fw-bold mb-0">${lastPoint.weight.toFixed(1)} kg</h4>
+                    <span class="small text-muted">${formatDate(lastPoint.date.toISOString().split('T')[0])}</span>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 function updateProfileNavButtons() {
@@ -1952,15 +2722,27 @@ function getStatusClass(status) {
     return '';
 }
 
-function filterTableBySheepId(inputElement, tableBodyId) {
+/**
+ * Filters a table's rows based on a search term.
+ * Hides rows that do not contain the search term in any of their cells.
+ * @param {HTMLInputElement} inputElement The input element containing the search term.
+ * @param {string} tableBodyId The ID of the tbody element to filter.
+ */
+function filterTable(inputElement, tableBodyId) {
     const searchTerm = inputElement.value.toLowerCase();
     const tableBody = document.getElementById(tableBodyId);
     if (!tableBody) return;
     const rows = tableBody.querySelectorAll('tr');
     rows.forEach(row => {
+        // Ignore placeholder rows (e.g., "No records found")
+        if (row.cells.length === 1 && row.cells[0].colSpan > 1) {
+            return;
+        }
+
         if (row.cells.length > 0) {
-            const sheepId = row.cells[0]?.textContent.toLowerCase() || '';
-            row.style.display = sheepId.includes(searchTerm) ? '' : 'none';
+            const rowText = row.textContent.toLowerCase();
+            const isVisible = rowText.includes(searchTerm);
+            row.style.display = isVisible ? '' : 'none';
         }
     });
 }
@@ -1972,7 +2754,9 @@ function filterProfileSelector() {
     for (const option of selector.options) {
         if (option.disabled) continue;
         const optionText = option.textContent.toLowerCase();
-        option.style.display = optionText.includes(searchTerm) ? '' : 'none';
+        const breed = (option.dataset.breed || '').toLowerCase();
+        const matchesSearch = optionText.includes(searchTerm) || breed.includes(searchTerm);
+        option.style.display = matchesSearch ? '' : 'none';
     }
 
     for (const group of selector.getElementsByTagName('optgroup')) {
@@ -2081,6 +2865,7 @@ function downloadCSV(csv, filename) {
     if (link.download !== undefined) {
         const url = URL.createObjectURL(blob);
         link.setAttribute('href', url);
+
         link.setAttribute('download', filename);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
@@ -2088,6 +2873,7 @@ function downloadCSV(csv, filename) {
         document.body.removeChild(link);
     }
 }
+
 
 // --- APP INITIALIZATION ---
 
@@ -2159,6 +2945,7 @@ function addEventListeners() {
         else if (target.closest('.js-edit-sold-record')) openEditSoldModal(recordId);
         else if (target.closest('.js-edit-weight')) openWeightModal(recordId, recordBtn.dataset.entryId, recordBtn.dataset.source);
         else if (target.closest('.js-delete-weight')) deleteWeightEntry(recordId, recordBtn.dataset.entryId, recordBtn.dataset.source);
+        else if (target.closest('.js-mark-checked')) markSheepAsChecked(recordId);
         
         // Other buttons
         else if (target.closest('#signOutBtn')) signOut(auth);
@@ -2214,21 +3001,87 @@ function addEventListeners() {
     addSafeEventListener('weightEntryForm', 'submit', handleSaveWeight);
 
     // --- Filters & Search ---
-    addSafeEventListener('scheduleFilterButtons', 'click', e => { if (e.target.matches('button')) updateScheduleView(e.target.dataset.filter); });
     addSafeEventListener('weeklyFilterButtons', 'click', e => { if (e.target.matches('button')) updateWeeklyTrackingView(e.target.dataset.filter); });
 
     mainApp.addEventListener('keyup', e => {
         if (e.target.matches('input[data-table-body-id]')) {
-            filterTableBySheepId(e.target, e.target.dataset.tableBodyId);
+            filterTable(e.target, e.target.dataset.tableBodyId);
+            if (e.target.dataset.tableBodyId === 'scheduleTableBody') {
+                updateBatchLogUI();
+            }
         } else if (e.target.matches('#profileSearchInput')) {
             filterProfileSelector();
         }
     });
 
+    // Event delegation for sold records filters
+    mainApp.addEventListener('click', e => {
+        if (e.target.matches('#soldRecordsFilterButtons button')) {
+            updateSoldRecordsView(e.target.dataset.filter);
+        } else if (e.target.matches('#clearSoldFiltersBtn')) {
+            const monthFilter = document.getElementById('soldMonthFilter');
+            if(monthFilter) monthFilter.value = 'all';
+            const yearFilter = document.getElementById('soldYearFilter');
+            if(yearFilter) yearFilter.value = 'all';
+            updateSoldRecordsView('all');
+        } else if (e.target.closest('#monthlySalesSort button')) {
+            const sortBtn = e.target.closest('button');
+            if (sortBtn && sortBtn.dataset.sort) handleMonthlySummarySort(sortBtn.dataset.sort);
+        }
+    });
+
+    mainApp.addEventListener('change', e => {
+        if (e.target.matches('#soldMonthFilter') || e.target.matches('#soldYearFilter')) {
+            updateSoldRecordsView();
+        }
+    });
+
+    // --- Growth Analytics Listeners ---
+    addSafeEventListener('growthGenderFilter', 'change', e => {
+        state.currentGrowthFilters.gender = e.target.value;
+        applyGrowthFiltersAndRender();
+    });
+    addSafeEventListener('growthBreedFilter', 'change', e => {
+        state.currentGrowthFilters.breed = e.target.value;
+        applyGrowthFiltersAndRender();
+    });
+    const growthSearchInput = document.querySelector('input[data-table-body-id="growthAnalyticsTableBody"]');
+    if (growthSearchInput) {
+        growthSearchInput.addEventListener('keyup', e => {
+            state.currentGrowthFilters.searchTerm = e.target.value.toLowerCase();
+            applyGrowthFiltersAndRender();
+        });
+    }
+
+    addSafeEventListener('growthAnalyticsTable', 'click', e => {
+        const th = e.target.closest('th.sortable');
+        if (!th) return;
+
+        const newColumn = th.dataset.sort;
+        let newDirection = 'desc';
+
+        if (growthAnalyticsSort.column === newColumn) {
+            newDirection = growthAnalyticsSort.direction === 'desc' ? 'asc' : 'desc';
+        }
+        growthAnalyticsSort = { column: newColumn, direction: newDirection };
+        applyGrowthFiltersAndRender();
+    });
+    // Global Year/Month Filter Listeners
+    addSafeEventListener('globalYearFilter', 'change', applyFiltersAndRender);
+    addSafeEventListener('globalMonthFilter', 'change', applyFiltersAndRender);
+    addSafeEventListener('globalDateClearBtn', 'click', () => {
+        document.getElementById('globalYearFilter').value = 'all';
+        document.getElementById('globalMonthFilter').value = 'all';
+        applyFiltersAndRender();
+    });
+
     // --- Dynamic UI Listeners ---
-    addSafeEventListener('scheduleTableBody', 'change', e => { if (e.target.matches('.sheep-select-checkbox')) updateBatchLogUI(); });
+    addSafeEventListener('scheduleTableBody', 'change', e => { if (e.target.matches('.schedule-checkbox')) updateBatchLogUI(); });
     addSafeEventListener('selectAllSchedule', 'change', e => {
-        document.querySelectorAll('#scheduleTableBody .sheep-select-checkbox').forEach(cb => cb.checked = e.target.checked);
+        const isChecked = e.target.checked;
+        document.querySelectorAll('#scheduleTableBody .schedule-checkbox').forEach(cb => {
+            if (cb.closest('tr').style.display !== 'none') { cb.checked = isChecked; }
+        });
         updateBatchLogUI();
     });
     addSafeEventListener('profileSheepSelector', 'change', e => { if (e.target.value) renderProfileForSheep(e.target.value); });
@@ -2237,4 +3090,97 @@ function addEventListeners() {
         const recordId = document.getElementById('weightSheepSelector')?.value;
         if (recordId) openWeightModal(recordId);
     });
+}
+
+function handleMonthlySummarySort(sortBy) {
+    monthlySummarySort = sortBy; // Set the global state for the 'saled' page filter
+    // Re-calculate totals from the master `soldRecords` list to ensure the summary is always based on the full dataset
+    const monthlyTotals = {};
+    masterSoldRecords.forEach(record => { // Changed from soldRecords to masterSoldRecords
+        try {
+            if (record.saleDate && record.salePrice != null) {
+                const saleDate = new Date(record.saleDate + 'T00:00:00');
+                if (!isNaN(saleDate.getTime())) {
+                    const monthKey = `${saleDate.getFullYear()}-${String(saleDate.getMonth() + 1).padStart(2, '0')}`;
+                    
+                    if (!monthlyTotals[monthKey]) {
+                        monthlyTotals[monthKey] = { sales: 0, profit: 0 };
+                    }
+
+                    const salePrice = parseFloat(record.salePrice) || 0;
+                    const buyingPrice = parseFloat(record.buyingPrice) || 0;
+                    const treatmentCosts = record.treatments ? Object.values(record.treatments).reduce((sum, t) => sum + (parseFloat(t.cost) || 0), 0) : 0;
+                    const totalCost = buyingPrice + treatmentCosts;
+                    const profit = salePrice - totalCost;
+
+                    monthlyTotals[monthKey].sales += salePrice;
+                    monthlyTotals[monthKey].profit += profit;
+                }
+            }
+        } catch (e) { /* ignore records that fail to process */ }
+    });
+    renderMonthlySalesSummary(monthlyTotals, sortBy);
+}
+
+function populateGlobalFilters() {
+    const yearSelector = document.getElementById('globalYearFilter');
+    const monthSelector = document.getElementById('globalMonthFilter');
+    if (!yearSelector || !monthSelector) return;
+
+    const allDates = [
+
+        ...masterAllRecords.map(r => r.dateRecorded),
+        ...masterSoldRecords.map(r => r.saleDate),
+        ...masterArchivedRecords.map(r => r.archiveDate)
+    ].filter(Boolean);
+
+    if (allDates.length === 0) return;
+
+    const uniqueYears = [...new Set(allDates.map(d => new Date(d + 'T00:00:00').getFullYear()))].sort((a, b) => b - a);
+
+    const currentYear = yearSelector.value;
+
+    yearSelector.innerHTML = '<option value="all">All Years</option>';
+    uniqueYears.forEach(year => {
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = year;
+        yearSelector.appendChild(option);
+    });
+    yearSelector.value = currentYear || 'all';
+
+    const currentMonth = monthSelector.value;
+    monthSelector.innerHTML = '<option value="all">All Months</option>';
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    for (let i = 0; i < 12; i++) {
+        const option = document.createElement('option');
+        option.value = i; // 0-11
+        option.textContent = monthNames[i];
+        monthSelector.appendChild(option);
+    }
+    monthSelector.value = currentMonth || 'all';
+}
+
+// New function for marking sheep as checked
+function markSheepAsChecked(recordId) {
+    if (confirm('Mark this sheep as checked today? This will update its last activity date by adding a new weight entry.')) {
+        const today = new Date().toISOString().split('T')[0];
+        const record = allRecords.find(r => r.id === recordId);
+        if (record) {
+            // Determine the latest weight to use for the new entry
+            const allWeightPoints = gatherAllWeightData(record); // Re-use existing function to get all weight points
+            const latestWeight = allWeightPoints.length > 0 ? allWeightPoints[allWeightPoints.length - 1].weight : (parseFloat(record.weight) || 0);
+
+            const newWeightEntry = {
+                date: today,
+                weight: latestWeight,
+                notes: 'Marked as checked via weekly tracking'
+            };
+            push(ref(db, `sheepHealthRecords/${recordId}/weights`), newWeightEntry)
+                .catch(error => {
+                    console.error("Error marking sheep as checked:", error);
+                    alert("Failed to mark sheep as checked: " + error.message);
+                });
+        }
+    }
 }
