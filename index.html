@@ -172,7 +172,8 @@
 </head>
 <body>
     <header class="header-section text-center">
-       <h1 class="display-4 text-primary"><img src="mekals logo.Jpg.jpg" alt="Your Farm Logo" class="header-logo">MEKALA</h1>
+        <img src="./mekals logo.Jpg.jpg" alt="Your Farm Logo" class="header-logo"> <h1 class="display-4 text-primary">
+        <h6 class="display-4 text-primary"></h6>MEKALA</h1>
         <p class="lead text-muted">Simple records for stronger flocks
 
 </p>
@@ -952,20 +953,69 @@
 
         <!-- MODALS -->
         <!-- Edit Sheep Modal -->
-        <div class="modal fade" id="editSheepModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content needs-navigation" id="editSheepForm"><div class="modal-header"><h5 class="modal-title">Edit Sheep Health Record</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">
-            <input type="hidden" id="editRecordId">
-            <div class="mb-3"><label for="editSheepId" class="form-label">Sheep ID</label><input type="text" class="form-control" id="editSheepId" required></div>
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label for="editGender" class="form-label">Gender</label>
-                    <select class="form-select" id="editGender" required>
-                        <option value="Female">Female</option>
-                        <option value="Male">Male</option>
-                    </select>
-                </div>
-                <div class="col-md-6 mb-3"><label for="editBreed" class="form-label">Breed</label><input type="text" class="form-control" id="editBreed" placeholder="e.g., Merino, Dorper"></div>
+        <div class="modal fade" id="editSheepModal" tabindex="-1">
+            <div class="modal-dialog">
+                <form class="modal-content needs-navigation" id="editSheepForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Sheep Profile</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="editRecordId">
+                        <h5 class="mb-3 text-primary">Core Details</h5>
+                        <div class="row">
+                            <div class="col-md-6 mb-3"><label for="editSheepId" class="form-label">Sheep ID</label><input type="text" class="form-control" id="editSheepId" required></div>
+                            <div class="col-md-6 mb-3"><label for="editGender" class="form-label">Gender</label><select class="form-select" id="editGender" required><option value="Female">Female</option><option value="Male">Male</option></select></div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3"><label for="editBreed" class="form-label">Breed</label><input type="text" class="form-control" id="editBreed" placeholder="e.g., Merino, Dorper"></div>
+                            <div class="col-md-6 mb-3"><label for="editBuyingPrice" class="form-label">Buying Price (₹)</label><input type="number" step="0.01" class="form-control" id="editBuyingPrice"></div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3"><label for="editHealthStatus" class="form-label">Health Status</label><select class="form-select" id="editHealthStatus" required><option value="Healthy">Healthy</option><option value="Recovering">Recovering</option><option value="Corentin">Corentin</option><option value="Under Treatment">Under Treatment</option><option value="Pregnant">Pregnant</option><option value="Deceased">Deceased</option></select></div>
+                            <div class="col-md-6 mb-3"><label for="editDateRecorded" class="form-label">Date Recorded</label><input type="date" class="form-control" id="editDateRecorded" required></div>
+                        </div>
+                        <div class="mb-3"><label for="editNotes" class="form-label">Initial Notes</label><textarea class="form-control" id="editNotes" rows="4"></textarea></div>
+                        <hr>
+                        <h5 class="mb-3 text-primary">Preventative Care Schedule</h5>
+                        <p class="text-muted small">Update the dates here to reset the schedule for this sheep. These fields are also updated automatically when you log a 'Deworming' or 'Vaccination' treatment.</p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-info-emphasis">Deworming</h6>
+                                <div class="mb-3">
+                                    <label for="editLastDewormingDate" class="form-label">Last Deworming Date</label>
+                                    <input type="date" class="form-control" id="editLastDewormingDate">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="editLastDewormingNotes" class="form-label">Deworming Notes</label>
+                                    <textarea class="form-control" id="editLastDewormingNotes" rows="2" placeholder="e.g., Brand used, dosage..."></textarea>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-info-emphasis">Vaccination</h6>
+                                <div class="mb-3">
+                                    <label for="editLastVaccinationDate" class="form-label">Last Vaccination Date</label>
+                                    <input type="date" class="form-control" id="editLastVaccinationDate">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="editManualVaccinationDueDate" class="form-label">Manual Next Due Date (Optional)</label>
+                                    <input type="date" class="form-control" id="editManualVaccinationDueDate" aria-describedby="manualDueDateHelp">
+                                    <div id="manualDueDateHelp" class="form-text">Use this to override the automatic 1-year cycle.</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="editLastVaccinationNotes" class="form-label">Vaccination Notes</label>
+                                    <textarea class="form-control" id="editLastVaccinationNotes" rows="2" placeholder="e.g., Type of vaccine..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
             </div>
-            <div class="mb-3"><label for="editBuyingPrice" class="form-label">Buying Price (₹)</label><input type="number" step="0.01" class="form-control" id="editBuyingPrice"></div><div class="mb-3"><label for="editHealthStatus" class="form-label">Health Status</label><select class="form-select" id="editHealthStatus" required><option value="Healthy">Healthy</option><option value="Recovering">Recovering</option><option value="Corentin">Corentin</option><option value="Under Treatment">Under Treatment</option><option value="Pregnant">Pregnant</option><option value="Deceased">Deceased</option></select></div><div class="mb-3"><label for="editDateRecorded" class="form-label">Date Recorded</label><input type="date" class="form-control" id="editDateRecorded" required></div><div class="mb-3"><label for="editNotes" class="form-label">Initial Notes</label><textarea class="form-control" id="editNotes" rows="4"></textarea></div><hr><h6 class="text-muted">Preventative Care Dates (Manual Override)</h6><div class="row"><div class="col-md-6 mb-3"><label for="editLastDewormingDate" class="form-label">Last Deworming</label><input type="date" class="form-control" id="editLastDewormingDate"></div></div><div class="mb-3"><label for="editLastDewormingNotes" class="form-label">Deworming Notes</label><input type="text" class="form-control" id="editLastDewormingNotes"></div><hr class="my-2"><div class="row"><div class="col-md-6 mb-3"><label for="editLastVaccinationDate" class="form-label">Last Vaccination</label><input type="date" class="form-control" id="editLastVaccinationDate"></div><div class="col-md-6 mb-3"><label for="editManualVaccinationDueDate" class="form-label"><strong>Next Vaccination Due</strong></label><input type="date" class="form-control" id="editManualVaccinationDueDate" aria-describedby="manualVaxHelp"></div></div><div id="manualVaxHelp" class="form-text mb-3">Set a specific next due date. Overrides automatic calculation (12 months).</div><div class="mb-3"><label for="editLastVaccinationNotes" class="form-label">Vaccination Notes</label><input type="text" class="form-control" id="editLastVaccinationNotes"></div></div><div class="modal-footer"><button type="button" class="btn-close" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Save Changes</button></div></form></div></div>
+        </div>
 
         <!-- Sale Modal -->
         <div class="modal fade" id="saleSheepModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content needs-navigation" id="saleSheepForm"><div class="modal-header"><h5 class="modal-title">Sale Sheep Record</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="saleRecordId"><div class="mb-3"><label for="saleDate" class="form-label">Date of Sale</label><input type="date" class="form-control" id="saleDate" required></div><div class="mb-3"><label for="salePrice" class="form-label">Sale Price</label><input type="number" step="0.01" class="form-control" id="salePrice" required></div><div class="mb-3"><label for="saleBuyer" class="form-label">Buyer Name</label><input type="text" class="form-control" id="saleBuyer"></div><div class="mb-3"><label for="saleNotes" class="form-label">Sale Notes</label><textarea class="form-control" id="saleNotes" rows="4"></textarea></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-success">Confirm Sale</button></div></form></div></div>
@@ -1004,7 +1054,7 @@
         <div class="modal fade" id="weightEntryModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content needs-navigation" id="weightEntryForm"><div class="modal-header"><h5 class="modal-title" id="weightModalTitle">Add Weight Entry</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="weightRecordId"><input type="hidden" id="weightEntryId"><input type="hidden" id="weightEntrySource"><div class="mb-3"><label for="weightEntryDate" class="form-label">Date</label><input type="date" class="form-control" id="weightEntryDate" required></div><div class="mb-3"><label for="weightEntryValue" class="form-label">Weight (kg)</label><input type="number" step="0.1" class="form-control" id="weightEntryValue" required></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Save Weight</button></div></form></div></div>
 
         <!-- Batch Treatment Modal -->
-        <div class="modal fade" id="batchTreatmentModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content needs-navigation" id="batchTreatmentForm"><div class="modal-header"><h5 class="modal-title">Log Batch Treatment</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><p>Applying treatment to <strong id="batchCount">0</strong> selected sheep.</p><div class="mb-3"><label for="batchTreatmentType" class="form-label">Treatment Type</label><select id="batchTreatmentType" class="form-select" required><option value="" disabled selected>Select a type...</option><option value="Deworming">Deworming</option><option value="Vaccination">Vaccination</option></select></div><div class="mb-3"><label for="batchTreatmentDate" class="form-label">Treatment Date</label><input type="date" class="form-control" id="batchTreatmentDate" required></div><div class="mb-3"><label for="batchMedication" class="form-label">Medication/Brand</label><input type="text" class="form-control" id="batchMedication" placeholder="e.g., Ivermectin, Cydectin"></div><div class="mb-3"><label for="batchDosage" class="form-label">Dosage</label><input type="text" class="form-control" id="batchDosage" placeholder="e.g., 5ml"></div><div class="mb-3"><label for="batchTreatmentNotes" class="form-label">Notes</label><textarea class="form-control" id="batchTreatmentNotes" rows="2"></textarea></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-success">Apply to All</button></div></form></div></div>
+        <div class="modal fade" id="batchTreatmentModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content needs-navigation" id="batchTreatmentForm"><div class="modal-header"><h5 class="modal-title">Log Batch Treatment</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><p>Applying treatment to <strong id="batchCount">0</strong> selected sheep.</p><div class="mb-3"><label for="batchTreatmentType" class="form-label">Treatment Type</label><select id="batchTreatmentType" class="form-select" required><option value="" disabled selected>Select a type...</option><option value="Deworming">Deworming</option><option value="Vaccination">Vaccination</option></select></div><div class="mb-3"><label for="batchTreatmentDate" class="form-label">Treatment Date</label><input type="date" class="form-control" id="batchTreatmentDate" required></div><div class="mb-3"><label for="batchMedication" class="form-label">Medication/Brand</label><input type="text" class="form-control" id="batchMedication" placeholder="e.g., Ivermectin, Cydectin"></div><div class="mb-3"><label for="batchDosage" class="form-label">Dosage</label><input type="text" class="form-control" id="batchDosage" placeholder="e.g., 5ml"></div><div class="mb-3"><label for="batchTreatmentNotes" class="form-label">Notes</label><textarea class="form-control" id="batchTreatmentNotes" rows="2"></textarea></div></div><div class="modal-footer"><button type="button" class="btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-success">Apply to All</button></div></form></div></div>
 
         <!-- Edit Sold Record Modal -->
         <div class="modal fade" id="editSoldSheepModal" tabindex="-1">
@@ -1036,6 +1086,5 @@
     <!-- Main Application Logic -->
     <script type="module" src="app.js"></script>
 </body>
-
 
 </html>
