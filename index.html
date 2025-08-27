@@ -576,7 +576,8 @@
                         </tr>
                     </thead>
                     <tbody id="scheduleTableBody">
-                        <!-- JavaScript will populate this section with the new design -->
+                        <!-- JavaScript will populate this section -->
+                        <tr><td colspan="5" class="text-center p-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -713,7 +714,12 @@
                         </div>
 
                         <div class="card mb-4 shadow-sm">
-                            <div class="card-header d-flex align-items-center"><i class="fas fa-shield-alt me-2"></i> Preventative Care</div>
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span><i class="fas fa-shield-alt me-2"></i> Preventative Care</span>
+                                <button class="btn btn-sm btn-outline-primary" id="profileEditScheduleBtn" data-bs-toggle="modal" data-bs-target="#editScheduleModal" title="Edit Schedule">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                            </div>
                             <ul class="list-group list-group-flush">
                                 <li class="list-group-item">
                                     <div class="d-flex w-100 justify-content-between">
@@ -1134,42 +1140,57 @@
                             <div class="col-md-6 mb-3"><label for="editDateRecorded" class="form-label">Date Recorded</label><input type="date" class="form-control" id="editDateRecorded" required></div>
                         </div>
                         <div class="mb-3"><label for="editNotes" class="form-label">Initial Notes</label><textarea class="form-control" id="editNotes" rows="4"></textarea></div>
-                        <hr>
-                        <h5 class="mb-3 text-primary">Preventative Care Schedule</h5>
-                        <p class="text-muted small">Update the dates here to reset the schedule for this sheep. These fields are also updated automatically when you log a 'Deworming' or 'Vaccination' treatment.</p>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6 class="text-info-emphasis">Deworming</h6>
-                                <div class="mb-3">
-                                    <label for="editLastDewormingDate" class="form-label">Last Deworming Date</label>
-                                    <input type="date" class="form-control" id="editLastDewormingDate">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="editLastDewormingNotes" class="form-label">Deworming Notes</label>
-                                    <textarea class="form-control" id="editLastDewormingNotes" rows="2" placeholder="e.g., Brand used, dosage..."></textarea>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <h6 class="text-info-emphasis">Vaccination</h6>
-                                <div class="mb-3">
-                                    <label for="editLastVaccinationDate" class="form-label">Last Vaccination Date</label>
-                                    <input type="date" class="form-control" id="editLastVaccinationDate">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="editManualVaccinationDueDate" class="form-label">Manual Next Due Date (Optional)</label>
-                                    <input type="date" class="form-control" id="editManualVaccinationDueDate" aria-describedby="manualDueDateHelp">
-                                    <div id="manualDueDateHelp" class="form-text">Use this to override the automatic 1-year cycle.</div>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="editLastVaccinationNotes" class="form-label">Vaccination Notes</label>
-                                    <textarea class="form-control" id="editLastVaccinationNotes" rows="2" placeholder="e.g., Type of vaccine..."></textarea>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Edit Schedule Modal -->
+        <div class="modal fade" id="editScheduleModal" tabindex="-1">
+            <div class="modal-dialog">
+                <form class="modal-content needs-navigation" id="editScheduleForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Schedule for <span id="scheduleModalSheepId" class="fw-bold"></span></h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="scheduleEditRecordId">
+                        <p class="text-muted small">Update the dates here to reset the schedule for this sheep. These fields are also updated automatically when you log a 'Deworming' or 'Vaccination' treatment.</p>
+                        
+                        <h6 class="text-info-emphasis border-bottom pb-2 mb-3"><i class="fas fa-pills fa-fw me-2"></i>Deworming</h6>
+                        <div class="mb-3">
+                            <label for="scheduleLastDewormingDate" class="form-label">Last Deworming Date</label>
+                            <input type="date" class="form-control" id="scheduleLastDewormingDate">
+                        </div>
+                        <div class="mb-3">
+                            <label for="scheduleLastDewormingNotes" class="form-label">Deworming Notes</label>
+                            <textarea class="form-control" id="scheduleLastDewormingNotes" rows="2" placeholder="e.g., Brand used, dosage..."></textarea>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <h6 class="text-info-emphasis border-bottom pb-2 mb-3"><i class="fas fa-syringe fa-fw me-2"></i>Vaccination</h6>
+                        <div class="mb-3">
+                            <label for="scheduleLastVaccinationDate" class="form-label">Last Vaccination Date</label>
+                            <input type="date" class="form-control" id="scheduleLastVaccinationDate">
+                        </div>
+                        <div class="mb-3">
+                            <label for="scheduleManualVaccinationDueDate" class="form-label">Manual Next Due Date (Optional)</label>
+                            <input type="date" class="form-control" id="scheduleManualVaccinationDueDate" aria-describedby="scheduleManualDueDateHelp">
+                            <div id="scheduleManualDueDateHelp" class="form-text">Use this to override the automatic 1-year cycle.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="scheduleLastVaccinationNotes" class="form-label">Vaccination Notes</label>
+                            <textarea class="form-control" id="scheduleLastVaccinationNotes" rows="2" placeholder="e.g., Type of vaccine..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Schedule</button>
                     </div>
                 </form>
             </div>
