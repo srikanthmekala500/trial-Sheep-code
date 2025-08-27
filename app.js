@@ -33,7 +33,7 @@ let masterFeedInventory = [];
 let allRecords = [];
 let soldRecords = [];
 let archivedRecords = [];
-let editSheepModal, saleSheepModal, treatmentLogModal, weightEntryModal, batchTreatmentModal, editSoldSheepModal;
+let editSheepModal, saleSheepModal, treatmentLogModal, weightEntryModal, batchTreatmentModal, editSoldSheepModal, editScheduleModal;
 let state = { // NOSONAR
     growthAnalyticsData: [], // Stores the raw calculated growth data for filtering/sorting
     currentGrowthFilters: { gender: 'all', breed: 'all', searchTerm: '' }
@@ -1011,8 +1011,11 @@ function renderScheduleRow(record) {
             ${renderCareCell(vaccinationStatus, record.lastVaccinationNotes, record.lastVaccinationDate)}
 
             <td class="text-center align-middle">
-                <button type="button" class="btn btn-sm btn-outline-primary js-manage-treatment" data-record-id="${record.id}" data-sheep-id="${record.sheepId}" title="Log New Care">
-                    <i class="fas fa-syringe fa-fw me-1"></i> Log Care
+                <button class="btn btn-sm btn-outline-primary edit-schedule-btn" data-record-id="${record.id}" title="Edit Schedule">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-info js-manage-treatment" data-record-id="${record.id}" data-sheep-id="${record.sheepId}" title="Log New Care">
+                    <i class="fas fa-syringe fa-fw"></i> Log
                 </button>
             </td>
         </tr>
@@ -1245,31 +1248,32 @@ function updateScheduleView(filter = currentScheduleFilter) {
     let overdueCount = 0;
     let upcomingCount = 0;
 
-    let recordsToDisplay = sortedRecords.filter(record => {
-        if (filter === 'all') return true;
-
+    // Process records to calculate statuses and counts in a single pass.
+    const recordsWithStatus = sortedRecords.map(record => {
         const dewormStatus = getScheduleStatus(record.lastDewormingDate, 30, null);
         const vaxStatus = getScheduleStatus(record.lastVaccinationDate, 365, record.manualVaccinationDueDate);
+        const isOverdue = dewormStatus.isOverdue || vaxStatus.isOverdue;
+        const isUpcoming = (dewormStatus.isUpcoming && !dewormStatus.isOverdue) || (vaxStatus.isUpcoming && !vaxStatus.isOverdue);
 
-        if (filter === 'overdue') {
-            return dewormStatus.isOverdue || vaxStatus.isOverdue;
-        }
-        if (filter === 'upcoming') {
-            return (dewormStatus.isUpcoming && !dewormStatus.isOverdue) || (vaxStatus.isUpcoming && !vaxStatus.isOverdue);
-        }
-        return false;
-    });
-    
-    // Calculate counts for all sheep regardless of current filter
-    sortedRecords.forEach(record => {
-        const dewormStatus = getScheduleStatus(record.lastDewormingDate, 30, null);
-        const vaxStatus = getScheduleStatus(record.lastVaccinationDate, 365, record.manualVaccinationDueDate);
-
-        if (dewormStatus.isOverdue || vaxStatus.isOverdue) {
+        if (isOverdue) {
             overdueCount++;
         }
-        if ((dewormStatus.isUpcoming && !dewormStatus.isOverdue) || (vaxStatus.isUpcoming && !vaxStatus.isOverdue)) {
+        if (isUpcoming) {
             upcomingCount++;
+        }
+        return { ...record, isOverdue, isUpcoming };
+    });
+
+    // Filter the processed records for display.
+    const recordsToDisplay = recordsWithStatus.filter(record => {
+        switch (filter) {
+            case 'overdue':
+                return record.isOverdue;
+            case 'upcoming':
+                return record.isUpcoming;
+            case 'all':
+            default:
+                return true;
         }
     });
 
@@ -1353,9 +1357,11 @@ function renderScheduleStatusBadge(status, lastDate = null) {
 }
 
 function updateBatchLogUI() {
-    const selected = document.querySelectorAll('#scheduleTableBody .sheep-select-checkbox:checked');
+    const selected = document.querySelectorAll('#scheduleTableBody .schedule-checkbox:checked');
     const btn = document.getElementById('batchLogBtn');
-    btn.style.display = selected.length > 0 ? 'inline-block' : 'none';
+    if (btn) {
+        btn.style.display = selected.length > 0 ? 'inline-block' : 'none';
+    }
     
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(function (tooltipTriggerEl) {
@@ -1364,7 +1370,7 @@ function updateBatchLogUI() {
 }
 
 function openBatchLogModal() {
-    const selectedCheckboxes = document.querySelectorAll('#scheduleTableBody .sheep-select-checkbox:checked');
+    const selectedCheckboxes = document.querySelectorAll('#scheduleTableBody .schedule-checkbox:checked');
     const count = selectedCheckboxes.length;
     if (count === 0) return alert('Please select at least one sheep.');
 
@@ -2162,34 +2168,12 @@ function openEditModal(recordId) {
     document.getElementById('editDateRecorded').value = record.dateRecorded;
     document.getElementById('editNotes').value = record.notes || '';
 
-    // Safely populate optional preventative care fields, preventing errors if they don't exist in the modal.
-    const dewormDateEl = document.getElementById('editLastDewormingDate');
-    if (dewormDateEl) dewormDateEl.value = record.lastDewormingDate || '';
-
-    const dewormNotesEl = document.getElementById('editLastDewormingNotes');
-    if (dewormNotesEl) dewormNotesEl.value = record.lastDewormingNotes || '';
-
-    const vaxDateEl = document.getElementById('editLastVaccinationDate');
-    if (vaxDateEl) vaxDateEl.value = record.lastVaccinationDate || '';
-
-    const manualVaxDateEl = document.getElementById('editManualVaccinationDueDate');
-    if (manualVaxDateEl) manualVaxDateEl.value = record.manualVaccinationDueDate || '';
-
-    const vaxNotesEl = document.getElementById('editLastVaccinationNotes');
-    if (vaxNotesEl) vaxNotesEl.value = record.lastVaccinationNotes || '';
-
     editSheepModal.show();
 }
 
 function handleUpdateRecord(e) {
     e.preventDefault();
     const recordId = document.getElementById('editRecordId').value;
-
-    // Helper to safely get value from a potentially missing element.
-    const getOptionalInputValue = (id) => {
-        const el = document.getElementById(id);
-        return el ? el.value : null;
-    };
 
     const updatedData = {
         sheepId: document.getElementById('editSheepId').value.trim(),
@@ -2199,11 +2183,6 @@ function handleUpdateRecord(e) {
         healthStatus: document.getElementById('editHealthStatus').value,
         dateRecorded: document.getElementById('editDateRecorded').value,
         notes: document.getElementById('editNotes').value.trim(),
-        lastDewormingDate: getOptionalInputValue('editLastDewormingDate') || null,
-        lastDewormingNotes: (getOptionalInputValue('editLastDewormingNotes') || '').trim() || null,
-        lastVaccinationDate: getOptionalInputValue('editLastVaccinationDate') || null,
-        manualVaccinationDueDate: getOptionalInputValue('editManualVaccinationDueDate') || null,
-        lastVaccinationNotes: (getOptionalInputValue('editLastVaccinationNotes') || '').trim() || null,
     };
 
     if (updatedData.healthStatus === 'Deceased') {
@@ -2220,6 +2199,51 @@ function handleUpdateRecord(e) {
         return;
     }
     update(ref(db, `sheepHealthRecords/${recordId}`), updatedData).then(() => editSheepModal.hide());
+}
+
+function openEditScheduleModal(recordId) {
+    if (!editScheduleModal) {
+        alert('Error: The schedule edit modal is not available. Please check the console for initialization errors.');
+        return;
+    }
+    const record = allRecords.find(r => r.id === recordId);
+    if (!record) {
+        alert('Error: Could not find the record to edit the schedule for.');
+        return;
+    }
+
+    // These IDs are from the new editScheduleModal in index.html
+    document.getElementById('scheduleEditRecordId').value = recordId;
+    document.getElementById('scheduleModalSheepId').textContent = record.sheepId;
+    
+    document.getElementById('scheduleLastDewormingDate').value = record.lastDewormingDate || '';
+    document.getElementById('scheduleLastDewormingNotes').value = record.lastDewormingNotes || '';
+    
+    document.getElementById('scheduleLastVaccinationDate').value = record.lastVaccinationDate || '';
+    document.getElementById('scheduleManualVaccinationDueDate').value = record.manualVaccinationDueDate || '';
+    document.getElementById('scheduleLastVaccinationNotes').value = record.lastVaccinationNotes || '';
+
+    editScheduleModal.show();
+}
+
+function handleUpdateSchedule(e) {
+    e.preventDefault();
+    const recordId = document.getElementById('scheduleEditRecordId').value;
+    if (!recordId) return alert('Error: No record ID found to save schedule.');
+
+    const updatedData = {
+        lastDewormingDate: document.getElementById('scheduleLastDewormingDate').value || null,
+        lastDewormingNotes: (document.getElementById('scheduleLastDewormingNotes').value || '').trim() || null,
+        lastVaccinationDate: document.getElementById('scheduleLastVaccinationDate').value || null,
+        manualVaccinationDueDate: document.getElementById('scheduleManualVaccinationDueDate').value || null,
+        lastVaccinationNotes: (document.getElementById('scheduleLastVaccinationNotes').value || '').trim() || null,
+    };
+
+    update(ref(db, `sheepHealthRecords/${recordId}`), updatedData).then(() => {
+        if (editScheduleModal) editScheduleModal.hide();
+    }).catch(error => {
+        alert("An error occurred while saving the schedule: " + error.message);
+    });
 }
 
 function deleteRecord(recordId, sheepId) {
@@ -3292,6 +3316,7 @@ function initializeUI() {
         weightEntryModal = initializeModal('weightEntryModal');
         batchTreatmentModal = initializeModal('batchTreatmentModal');
         editSoldSheepModal = initializeModal('editSoldSheepModal');
+        editScheduleModal = initializeModal('editScheduleModal');
         // The editFeedModal is initialized on-demand in openEditFeedModal to avoid potential race conditions
     });
 
@@ -3362,6 +3387,7 @@ function addEventListeners() {
         else if (action = getAction('.js-edit-weight')) openWeightModal(action.recordId, action.entryId, action.source);
         else if (action = getAction('.js-delete-weight')) deleteWeightEntry(action.recordId, action.entryId, action.source);
         else if (action = getAction('.js-mark-checked')) markSheepAsChecked(action.recordId);
+        else if (action = getAction('.edit-schedule-btn')) openEditScheduleModal(action.recordId);
         
         // Other buttons
         else if (target.closest('#signOutBtn')) signOut(auth);
@@ -3373,6 +3399,10 @@ function addEventListeners() {
         else if (target.closest('#profileEditBtn')) {
             const selectedId = document.getElementById('profileSheepSelector').value;
             if (selectedId) openEditModal(selectedId);
+        }
+        else if (target.closest('#profileEditScheduleBtn')) {
+            const selectedId = document.getElementById('profileSheepSelector').value;
+            if (selectedId) openEditScheduleModal(selectedId);
         }
         else if (target.closest('.js-export-healthy')) exportData();
         else if (target.closest('.js-export-corentin')) exportCorentinData();
@@ -3432,6 +3462,7 @@ function addEventListeners() {
     addSafeEventListener('editFeedForm', 'submit', handleUpdateFeedItem);
     addSafeEventListener('weightEntryForm', 'submit', handleSaveWeight);
 
+    addSafeEventListener('editScheduleForm', 'submit', handleUpdateSchedule);
     // --- Filters & Search ---
     addSafeEventListener('weeklyFilterButtons', 'click', e => { if (e.target.matches('button')) updateWeeklyTrackingView(e.target.dataset.filter); });
     addSafeEventListener('scheduleFilterButtons', 'click', e => { if (e.target.matches('button')) updateScheduleView(e.target.dataset.filter); });
