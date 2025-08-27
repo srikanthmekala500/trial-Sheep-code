@@ -34,7 +34,7 @@ let allRecords = [];
 let soldRecords = [];
 let archivedRecords = [];
 let editSheepModal, saleSheepModal, treatmentLogModal, weightEntryModal, batchTreatmentModal, editSoldSheepModal;
-let state = {
+let state = { // NOSONAR
     growthAnalyticsData: [], // Stores the raw calculated growth data for filtering/sorting
     currentGrowthFilters: { gender: 'all', breed: 'all', searchTerm: '' }
 };
@@ -429,10 +429,12 @@ function renderFeedInventoryTable() {
 
     const rowsHtml = sortedInventory.map(item => `
         <tr>
-            <td class="align-middle"><strong>${item.name}</strong></td>
+            <td class="align-middle"><strong>${item.name || 'N/A'}</strong></td>
+            <td class="align-middle">${formatDate(item.purchaseDate)}</td>
             <td class="align-middle">₹${(item.pricePerKg || 0).toFixed(2)}</td>
             <td class="align-middle">${(item.quantityOnHand || 0).toFixed(2)} kg</td>
             <td class="text-center">
+                <button class="btn btn-sm btn-outline-primary js-edit-feed-item" data-feed-id="${item.id}" title="Edit Item"><i class="fas fa-edit"></i></button>
                 <button class="btn btn-sm btn-outline-danger js-delete-feed-item" data-feed-id="${item.id}" data-feed-name="${item.name}" title="Delete Item"><i class="fas fa-trash"></i></button>
             </td>
         </tr>`).join('');
@@ -1927,28 +1929,60 @@ function renderGrowthAnalyticsTable(data) {
 // --- FINANCIALS DASHBOARD ---
 function updateFinancialsDashboard() {
     // Calculate metrics based on currently filtered records
-    const investment = allRecords.reduce((sum, r) => sum + (parseFloat(r.buyingPrice) || 0), 0);
+    // Note: `allRecords` and `soldRecords` are already filtered by the global date filters.
+    const investment = allRecords.reduce((sum, r) => sum + (parseFloat(r.buyingPrice) || 0), 0); // This is investment in the ACTIVE flock for the period
     const revenue = soldRecords.reduce((sum, r) => sum + (parseFloat(r.salePrice) || 0), 0);
     
-    let expenses = 0;
+    let totalExpenses = 0;
     const allFilteredRecords = [...allRecords, ...soldRecords];
     allFilteredRecords.forEach(record => {
         if (record.treatments) {
             Object.values(record.treatments).forEach(t => {
                 if (t.cost) {
-                    expenses += (parseFloat(t.cost) || 0);
+                    totalExpenses += (parseFloat(t.cost) || 0);
                 }
             });
         }
     });
 
-    const profitLoss = revenue - expenses - investment;
+    // Correct Profit/Loss Calculation: Profit is calculated only on completed transactions (sold sheep).
+    // It is Revenue from sales minus the total cost associated with those specific sheep.
+    let costOfGoodsSold = 0;
+    soldRecords.forEach(record => {
+        const buyingPrice = parseFloat(record.buyingPrice) || 0;
+        const treatmentCosts = record.treatments ? Object.values(record.treatments).reduce((sum, t) => sum + (parseFloat(t.cost) || 0), 0) : 0;
+        costOfGoodsSold += (buyingPrice + treatmentCosts);
+    });
+    const profitLoss = revenue - costOfGoodsSold;
+
+    // --- New Grand Total Calculation ---
+    // This calculates a grand total based on the user's request:
+    const totalInvestmentAllFlocks = [...allRecords, ...soldRecords].reduce((sum, r) => sum + (parseFloat(r.buyingPrice) || 0), 0);
+    const feedInventoryCost = masterFeedInventory.reduce((sum, item) => sum + ((parseFloat(item.pricePerKg) || 0) * (parseFloat(item.quantityOnHand) || 0)), 0);
+    const grandTotal = revenue - totalInvestmentAllFlocks - totalExpenses;
 
     updateElement('financialsInvestment', `₹${investment.toFixed(2)}`);
-    updateElement('financialsExpenses', `₹${expenses.toFixed(2)}`);
+    updateElement('financialsExpenses', `₹${totalExpenses.toFixed(2)}`);
     updateElement('financialsRevenue', `₹${revenue.toFixed(2)}`);
     updateElement('financialsProfitLoss', `₹${profitLoss.toFixed(2)}`);
-    document.getElementById('financialsProfitLoss').className = `h5 mb-0 font-weight-bold ${profitLoss >= 0 ? 'text-success' : 'text-danger'}`;
+    document.getElementById('financialsProfitLoss').className = `h5 mb-0 font-weight-bold ${profitLoss >= 0 ? 'text-success' : 'text-danger'}`; // NOSONAR
+
+    // Safely update the grand total card to prevent crashes if the element is missing
+    const grandTotalEl = document.getElementById('financialsGrandTotal');
+    if (grandTotalEl) grandTotalEl.textContent = `₹${grandTotal.toFixed(2)}`;
+    if (grandTotalEl) grandTotalEl.className = `h5 mb-0 font-weight-bold ${grandTotal >= 0 ? 'text-success' : 'text-danger'}`;
+
+    // --- Populate the new Detailed Financial Breakdown table ---
+    updateElement('breakdownRevenue', `₹${revenue.toFixed(2)}`);
+    updateElement('breakdownInvestment', `₹${totalInvestmentAllFlocks.toFixed(2)}`);
+    updateElement('breakdownExpenses', `₹${totalExpenses.toFixed(2)}`);
+    updateElement('breakdownFeedValue', `₹${feedInventoryCost.toFixed(2)}`);
+    updateElement('breakdownGrandTotal', `₹${grandTotal.toFixed(2)}`);
+
+    const grandTotalBreakdownEl = document.getElementById('breakdownGrandTotal');
+    if (grandTotalBreakdownEl) {
+        grandTotalBreakdownEl.className = `text-end fw-bold fs-5 ${grandTotal >= 0 ? 'text-success' : 'text-danger'}`;
+    }
 
     renderFinancialsChart();
     renderExpenseBreakdownChart();
@@ -2562,6 +2596,7 @@ function handleAddFeedItem(e) {
     const newFeedItem = {
         name: document.getElementById('feedName').value.trim(),
         pricePerKg: parseFloat(document.getElementById('feedPricePerKg').value),
+        purchaseDate: document.getElementById('feedPurchaseDate').value,
         quantityOnHand: parseFloat(document.getElementById('feedQuantity').value)
     };
 
@@ -2570,6 +2605,47 @@ function handleAddFeedItem(e) {
     }
 
     push(ref(db, 'feedInventory'), newFeedItem).then(() => e.target.reset());
+}
+
+function openEditFeedModal(feedId) {
+    const modalEl = document.getElementById('editFeedModal');
+    if (!modalEl) {
+        alert('Error: The HTML for the Edit Feed modal is missing from index.html. The edit functionality cannot proceed.');
+        console.error("Could not open edit feed modal because the element with ID 'editFeedModal' was not found in the HTML file.");
+        return;
+    }
+
+    const item = masterFeedInventory.find(f => f.id === feedId);
+    if (!item) {
+        alert('Error: Could not find the feed item to edit.');
+        return;
+    }
+    document.getElementById('editFeedId').value = item.id;
+    document.getElementById('editFeedName').value = item.name || '';
+    document.getElementById('editFeedPurchaseDate').value = item.purchaseDate || '';
+    document.getElementById('editFeedPricePerKg').value = item.pricePerKg || '';
+    document.getElementById('editFeedQuantity').value = item.quantityOnHand || '';
+
+    const editFeedModal = new bootstrap.Modal(modalEl);
+    editFeedModal.show();
+}
+
+function handleUpdateFeedItem(e) {
+    e.preventDefault();
+    const feedId = document.getElementById('editFeedId').value;
+    if (!feedId) return alert('Error: No feed ID found.');
+
+    const updatedData = {
+        name: document.getElementById('editFeedName').value.trim(),
+        purchaseDate: document.getElementById('editFeedPurchaseDate').value,
+        pricePerKg: parseFloat(document.getElementById('editFeedPricePerKg').value),
+        quantityOnHand: parseFloat(document.getElementById('editFeedQuantity').value)
+    };
+
+    update(ref(db, `feedInventory/${feedId}`), updatedData).then(() => {
+        const editFeedModal = bootstrap.Modal.getInstance(document.getElementById('editFeedModal'));
+        editFeedModal.hide();
+    });
 }
 
 // --- SHEEP PROFILE SECTION ---
@@ -3216,6 +3292,7 @@ function initializeUI() {
         weightEntryModal = initializeModal('weightEntryModal');
         batchTreatmentModal = initializeModal('batchTreatmentModal');
         editSoldSheepModal = initializeModal('editSoldSheepModal');
+        // The editFeedModal is initialized on-demand in openEditFeedModal to avoid potential race conditions
     });
 
     runSafely('Set Default Date', () => {
@@ -3223,6 +3300,10 @@ function initializeUI() {
         const dateEl = document.getElementById('dateRecorded');
         if (dateEl) {
             dateEl.valueAsDate = new Date();
+        }
+        const feedDateEl = document.getElementById('feedPurchaseDate');
+        if (feedDateEl) {
+            feedDateEl.valueAsDate = new Date();
         }
     });
 
@@ -3255,26 +3336,32 @@ function addEventListeners() {
     };
     // --- Main App Click Handler (Event Delegation) ---
     mainApp.addEventListener('click', (e) => {
-        const target = e.target;
-        const recordBtn = target.closest('[data-record-id]');
-        const recordId = recordBtn?.dataset.recordId;
-        const sheepId = recordBtn?.dataset.sheepId;
+        const { target } = e;
+
+        // Helper to find the clicked button and its data, making the handler more robust.
+        const getAction = (selector) => {
+            const button = target.closest(selector);
+            return button ? { button, ...button.dataset } : null;
+        };
+
+        let action;
 
         // Table row actions
-        if (target.closest('.js-edit-record')) openEditModal(recordId);
-        else if (target.closest('.js-sale-record')) openSaleModal(recordId);
-        else if (target.closest('.js-delete-record')) deleteRecord(recordId, sheepId);
-        else if (target.closest('.js-archive-record')) archiveRecord(recordId);
-        else if (target.closest('.js-manage-treatment')) openTreatmentLog(recordId, sheepId);
-        else if (target.closest('.js-edit-treatment')) editTreatmentEntry(recordId, recordBtn.dataset.entryId);
-        else if (target.closest('.js-delete-treatment')) deleteTreatmentEntry(recordId, recordBtn.dataset.entryId);
-        else if (target.closest('.js-delete-feed-item')) deleteFeedItem(recordBtn.dataset.feedId, recordBtn.dataset.feedName);
-        else if (target.closest('.js-delete-sold-record')) deleteSoldRecord(recordId, sheepId);
-        else if (target.closest('.js-delete-archived-record')) deleteArchivedRecord(recordId, sheepId);
-        else if (target.closest('.js-edit-sold-record')) openEditSoldModal(recordId);
-        else if (target.closest('.js-edit-weight')) openWeightModal(recordId, recordBtn.dataset.entryId, recordBtn.dataset.source);
-        else if (target.closest('.js-delete-weight')) deleteWeightEntry(recordId, recordBtn.dataset.entryId, recordBtn.dataset.source);
-        else if (target.closest('.js-mark-checked')) markSheepAsChecked(recordId);
+        if (action = getAction('.js-edit-record')) openEditModal(action.recordId);
+        else if (action = getAction('.js-sale-record')) openSaleModal(action.recordId);
+        else if (action = getAction('.js-delete-record')) deleteRecord(action.recordId, action.sheepId);
+        else if (action = getAction('.js-archive-record')) archiveRecord(action.recordId);
+        else if (action = getAction('.js-manage-treatment')) openTreatmentLog(action.recordId, action.sheepId);
+        else if (action = getAction('.js-edit-treatment')) editTreatmentEntry(action.recordId, action.entryId);
+        else if (action = getAction('.js-delete-treatment')) deleteTreatmentEntry(action.recordId, action.entryId);
+        else if (action = getAction('.js-delete-feed-item')) deleteFeedItem(action.feedId, action.feedName);
+        else if (action = getAction('.js-edit-feed-item')) openEditFeedModal(action.feedId);
+        else if (action = getAction('.js-delete-sold-record')) deleteSoldRecord(action.recordId, action.sheepId);
+        else if (action = getAction('.js-delete-archived-record')) deleteArchivedRecord(action.recordId, action.sheepId);
+        else if (action = getAction('.js-edit-sold-record')) openEditSoldModal(action.recordId);
+        else if (action = getAction('.js-edit-weight')) openWeightModal(action.recordId, action.entryId, action.source);
+        else if (action = getAction('.js-delete-weight')) deleteWeightEntry(action.recordId, action.entryId, action.source);
+        else if (action = getAction('.js-mark-checked')) markSheepAsChecked(action.recordId);
         
         // Other buttons
         else if (target.closest('#signOutBtn')) signOut(auth);
@@ -3294,9 +3381,8 @@ function addEventListeners() {
         else if (target.closest('.js-export-sold')) exportSoldData();
         else if (target.closest('.notification-item')) {
             e.preventDefault();
-            const notificationLink = target.closest('.notification-item');
-            const recordId = notificationLink.dataset.recordId;
-            const notificationType = notificationLink.dataset.notificationType;
+            const notification = getAction('.notification-item');
+            const { recordId, notificationType } = notification;
 
             if (notificationType === 'schedule') {
                 showSection('schedule');
@@ -3313,10 +3399,10 @@ function addEventListeners() {
         }
         else if (target.closest('.profile-link')) {
             e.preventDefault();
-            const profileId = target.closest('.profile-link').dataset.sheepId;
+            const profileLink = getAction('.profile-link');
             showSection('profile');
-            document.getElementById('profileSheepSelector').value = profileId;
-            renderProfileForSheep(profileId);
+            document.getElementById('profileSheepSelector').value = profileLink.sheepId;
+            renderProfileForSheep(profileLink.sheepId);
         }
     });
 
@@ -3343,6 +3429,7 @@ function addEventListeners() {
     addSafeEventListener('batchTreatmentForm', 'submit', handleBatchSaveTreatment);
     addSafeEventListener('editSoldSheepForm', 'submit', handleUpdateSoldRecord);
     addSafeEventListener('addFeedForm', 'submit', handleAddFeedItem);
+    addSafeEventListener('editFeedForm', 'submit', handleUpdateFeedItem);
     addSafeEventListener('weightEntryForm', 'submit', handleSaveWeight);
 
     // --- Filters & Search ---
