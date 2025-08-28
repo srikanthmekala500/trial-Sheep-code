@@ -7,69 +7,98 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <style>
-        body { background-color: #f0f2f5; color: #333; }
-        .header-section { background-color: #fff; padding: 2rem 0; margin-bottom: 2rem; }
-        .main-container { background-color: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+        /* =================================================================
+         * THEME & VARIABLES
+         * ================================================================= */
+        :root {
+            --color-primary: #0d6efd;
+            --color-success: #28a745;
+            --color-danger: #dc3545;
+            --color-warning: #ffc107;
+            --color-info: #0dcaf0;
+            --color-purple: #6f42c1;
+            --color-pink: #e83e8c;
+            --color-text: #333;
+            --color-text-muted: #6c757d;
+            --color-text-subtle: #858796;
+            --bg-body: #f0f2f5;
+            --bg-card: #fff;
+            --border-color: #dee2e6;
+        }
+
+        /* =================================================================
+         * GENERAL & LAYOUT
+         * ================================================================= */
+        body { background-color: var(--bg-body); color: var(--color-text); }
+        .main-container { background-color: var(--bg-card); padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
         .hidden { display: none; }
-        .status-healthy { color: #28a745; font-weight: bold; }
-        .status-corentin { color: #dc3545; font-weight: bold; }
-        .status-treatment { color: #ffc107; font-weight: bold; }
-        .status-pregnant { color: #6f42c1; font-weight: bold; } /* A nice purple for pregnant status */
-        .bg-purple { background-color: #6f42c1; }
-        .bg-pink { background-color: #e83e8c; }
-        .loading { font-style: italic; color: #6c757d; }
-        .table-scrollable {
-            max-height: 65vh; /* Set a max height for tables, e.g., 65% of viewport height */
-            overflow-y: auto;
-        }
-        .sortable {
-            cursor: pointer;
-            user-select: none;
-        }
-        .sortable:hover {
-            background-color: #0873dd;
-        }
-        .sort-icon::after {
-            font-family: "Font Awesome 6 Free";
-            font-weight: 900;
-            margin-left: 0.5em;
-            opacity: 0.4;
-            content: "\f0dc"; /* fa-sort */
-        }
-        .sortable.active .sort-icon::after { opacity: 1; }
-        .sortable.active[data-direction="asc"] .sort-icon::after { content: "\f0de"; /* fa-sort-up */ }
-        .sortable.active[data-direction="desc"] .sort-icon::after { content: "\f0dd"; /* fa-sort-down */ }
-        
-        .header-logo {
-            height: 100px;
-            margin-right: 15px;
-        }
+        .loading { font-style: italic; color: var(--color-text-muted); }
+
+        /* =================================================================
+         * HEADER
+         * ================================================================= */
+        .header-section { background-color: var(--bg-card); padding: 2rem 0; margin-bottom: 2rem; }
+        .header-logo { height: 100px; }
         .header-section h1.display-4 {
-            display: flex;
-            justify-content: center;
-            align-items: center;
             font-weight: 300; /* Lighter font for a modern look */
             letter-spacing: -1px;
         }
-        
+        .gita-quote {
+            font-size: 0.9rem;
+            border-left: 3px solid var(--color-primary);
+            padding-left: 1rem;
+            color: var(--color-text-muted);
+            font-style: italic;
+            text-align: left;
+        }
+        .gita-quote .blockquote-footer {
+            font-size: .8rem;
+            color: var(--color-text-subtle);
+            font-style: normal;
+            padding-top: 0.5rem; /* Reduced padding for better spacing */
+        }
+        .header-info .date-display {
+            font-size: 1.75rem;
+            font-weight: 500;
+            color: #343a40;
+        }
+        .header-info .welcome-message {
+            font-size: 0.9rem;
+            color: var(--color-text-muted);
+        }
+        .header-tagline {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--color-text-subtle);
+            text-transform: uppercase;
+            letter-spacing: 0.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .header-tagline::before,
+        .header-tagline::after {
+            content: '';
+            display: inline-block;
+            width: 40px;
+            height: 1px;
+            background-color: var(--border-color);
+            margin: 0 15px;
+        }
+
+        /* =================================================================
+         * DASHBOARD & SIDEBAR
+         * ================================================================= */
+        .dashboard-layout { display: flex; align-items: flex-start; gap: 1.5rem; }
+        .dashboard-content { flex-grow: 1; }
+        .dashboard-sidebar { width: 240px; flex-shrink: 0; }
         .sidebar-heading {
             padding: 0.75rem 1rem 0.25rem;
             font-size: 0.75rem;
             font-weight: bold;
-            color: #6c757d;
+            color: var(--color-text-muted);
             text-transform: uppercase;
             letter-spacing: .05rem;
-        }
-
-        /* Dashboard Layout */
-        .dashboard-layout {
-            display: flex;
-            align-items: flex-start;
-            gap: 1.5rem;
-        }
-        .dashboard-sidebar {
-            width: 240px;
-            flex-shrink: 0;
         }
         .dashboard-sidebar .nav-link {
             color: #495057;
@@ -80,103 +109,159 @@
             align-items: center;
         }
         .dashboard-sidebar .nav-link:hover { background-color: #e9ecef; }
-        .dashboard-sidebar .nav-link.active { background-color: #0d6efd; color: #fff !important; font-weight: 500; }
-        .dashboard-content { flex-grow: 1; }
+        .dashboard-sidebar .nav-link.active { background-color: var(--color-primary); color: var(--bg-card) !important; font-weight: 500; }
 
-        /* Responsive Sidebar for smaller screens */
+        /* =================================================================
+         * TABLES & STATUSES
+         * ================================================================= */
+        .table-scrollable { max-height: 65vh; overflow-y: auto; }
+        .scrollable-list { max-height: 240px; overflow-y: auto; }
+        .table-group-header { font-weight: bold; }
+
+        /* Status Colors */
+        .status-healthy, .status-corentin, .status-treatment, .status-pregnant { font-weight: bold; }
+        .status-healthy { color: var(--color-success); }
+        .status-corentin { color: var(--color-danger); }
+        .status-treatment { color: var(--color-warning); }
+        .status-pregnant { color: var(--color-purple); }
+        .bg-purple { background-color: var(--color-purple); }
+        .bg-pink { background-color: var(--color-pink); }
+
+        /* Custom Table Row Highlighting (Bootstrap 5.x variable override method) */
+        .table-danger-light { --bs-table-bg: rgba(220, 53, 69, 0.07); }
+        .table-warning-light { --bs-table-bg: rgba(255, 193, 7, 0.07); }
+        .table-info-light { --bs-table-bg: rgba(13, 202, 240, 0.07); }
+
+        /* Table Sorting */
+        .sortable { cursor: pointer; user-select: none; }
+        .sortable:hover { background-color: #0873dd; color: var(--bg-card); }
+        .sort-icon::after {
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            margin-left: 0.5em;
+            opacity: 0.4;
+            content: "\f0dc"; /* fa-sort */
+        }
+        .sortable.active .sort-icon::after { opacity: 1; }
+        .sortable.active[data-direction="asc"] .sort-icon::after { content: "\f0de"; /* fa-sort-up */ }
+        .sortable.active[data-direction="desc"] .sort-icon::after { content: "\f0dd"; /* fa-sort-down */ }
+
+        /* =================================================================
+         * COMPONENTS
+         * ================================================================= */
+        /* Notifications */
+        .dropdown-menu { max-height: 400px; overflow-y: auto; }
+        .notification-item {
+            display: flex;
+            align-items: flex-start;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #eee;
+        }
+        .notification-item:last-child { border-bottom: none; }
+        .notification-item .icon { font-size: 1.2rem; margin-right: 1rem; padding-top: 0.2rem; }
+        .notification-item .content { line-height: 1.3; }
+
+        /* Weight Display */
+        .latest-weight-value {
+            font-size: 4.25rem;
+            font-weight: 600;
+            vertical-align: middle;
+            padding: .5em .8em;
+        }
+
+        /* SB Admin 2 style helpers for card consistency */
+        .border-left-success { border-left: 0.25rem solid var(--color-success) !important; }
+        .border-left-danger { border-left: 0.25rem solid var(--color-danger) !important; }
+        .border-left-warning { border-left: 0.25rem solid var(--color-warning) !important; }
+        .border-left-info { border-left: 0.25rem solid var(--color-info) !important; }
+        .text-xs { font-size: .7rem; }
+        .text-gray-300 { color: #dddfeb !important; }
+        .text-gray-800 { color: #5a5c69 !important; }
+        /* =================================================================
+         * RESPONSIVE STYLES
+         * ================================================================= */
+        /* Sidebar for Tablet & Smaller */
         @media (max-width: 991.98px) {
             .dashboard-sidebar {
                 position: fixed;
                 top: 0;
                 bottom: 0;
                 left: 0;
-                z-index: 1030; /* High z-index to appear above content */
-                background-color: #fff;
+                z-index: 1030;
+                background-color: var(--bg-card);
                 box-shadow: 0 0 15px rgba(0,0,0,0.2);
                 transform: translateX(-100%);
                 transition: transform 0.3s ease-in-out;
             }
-            .dashboard-sidebar.visible {
-                transform: translateX(0);
-            }
+            .dashboard-sidebar.visible { transform: translateX(0); }
             .dashboard-layout { gap: 0; }
             #sidebarToggleBtn { display: block !important; }
         }
 
-        /* Notification Bell */
-        .dropdown-menu {
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        .notification-item {
-            display: flex;
-            align-items: flex-start; /* Align to top for longer text */
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid #eee;
-        }
-        .notification-item:last-child {
-            border-bottom: none;
-        }
-        .notification-item .icon {
-            font-size: 1.2rem;
-            margin-right: 1rem;
-            padding-top: 0.2rem;
-        }
-        .notification-item .content { line-height: 1.3; }
-
-        /* Row Highlighting for Follow-ups */
-        .table-danger-light, .table-danger-light > th, .table-danger-light > td {
-            background-color: rgba(220, 53, 69, 0.07) !important;
-        }
-        .table-warning-light, .table-warning-light > th, .table-warning-light > td {
-            background-color: rgba(255, 193, 7, 0.07) !important;
-        }
-        .table-info-light, .table-info-light > th, .table-info-light > td {
-            background-color: rgba(13, 202, 240, 0.07) !important;
-        }
-        .table-group-header {
-            font-weight: bold;
-        }
-        .scrollable-list {
-            max-height: 240px; /* Approx height of 5-6 items */
-            overflow-y: auto;
-        }
-        .latest-weight-value {
-            font-size: 4.25rem; /* Custom large size */
-            font-weight: 600;
-            vertical-align: middle; /* Better alignment with text */
-            padding: .5em .8em; /* Adjust padding for new size */
-        }
-
-        /* Mobile Responsiveness */
+        /* General Mobile Styles */
         @media (max-width: 767.98px) {
-            .header-logo {
-                height: 60px; /* Smaller logo on mobile */
-            }
-            .header-section h1.display-4 {
-                font-size: 2.5rem; /* Smaller header text */
-            }
-            .header-section {
-                padding: 1.5rem 0;
-            }
-            .main-container {
-                padding: 1rem; /* Less padding on mobile */
-            }
+            .header-section { padding: 1.5rem 0; }
+            .header-logo { height: 60px; }
+            .header-section h1.display-4 { font-size: 2.5rem; }
+            .header-tagline { font-size: 0.8rem; letter-spacing: 0.05rem; }
+            .header-tagline::before,
+            .header-tagline::after { display: none; }
+            
+            .main-container { padding: 1rem; }
             /* Make top control bar wrap nicely */
             .main-container > .d-flex.justify-content-between.align-items-center {
                 flex-wrap: wrap;
                 gap: 0.5rem;
             }
         }
+
+        /* Sidebar Overlay */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1029; /* Below sidebar (1030), above content */
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+        }
+        .sidebar-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
     </style>
 </head>
 <body>
-    <header class="header-section text-center">
-        <img src="./mekals logo.Jpg.jpg" alt="Your Farm Logo" class="header-logo"> <h1 class="display-4 text-primary">
-        <h6 class="display-4 text-primary"></h6>MEKALA</h1>
-        <p class="lead text-muted">Simple records for stronger flocks
-
-</p>
+    <header class="header-section">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-3 d-none d-lg-block">
+                    <div class="d-flex align-items-center">
+                        <img src="./krishna.png" alt="Illustration of Sri Krishna" class="header-logo me-3">
+                        <blockquote class="gita-quote mb-0">
+                            <p id="dailyQuote" class="mb-0">"You have a right to perform your prescribed duties, but you are not entitled to the fruits of your actions."</p>
+                            <footer id="quoteAttribution" class="blockquote-footer">Bhagavad Gita 2.47</footer>
+                        </blockquote>
+                    </div>
+                </div>
+                <div class="col-lg-6 text-center">
+                    <div class="d-flex flex-column flex-md-row justify-content-center align-items-center mb-2">
+                        <img src="./mekals logo.Jpg.jpg" alt="MEKALA Logo" class="header-logo me-md-3 mb-2 mb-md-0">
+                        <h1 class="display-4 text-primary mb-0">MEKALA</h1>
+                    </div>
+                    <p class="header-tagline mb-0">Simple Records for Stronger Flocks</p>
+                </div>
+                <div class="col-lg-3 d-none d-lg-block text-end">
+                    <div class="header-info">
+                        <div id="currentDate" class="date-display">Maonil</div>
+                        <div id="welcomeMessage" class="welcome-message">Welcome!</div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </header>
 
     <!-- Auth Section -->
@@ -234,6 +319,13 @@
 
         <div class="dashboard-layout">
             <nav class="dashboard-sidebar">
+                <a class="sidebar-brand d-flex align-items-center justify-content-center" href="#">
+                    <div class="sidebar-brand-icon">
+                        <i class="fas fa-tractor"></i>
+                    </div>
+                    <div class="sidebar-brand-text mx-2">MEKALA</div>
+                </a>
+                <hr class="sidebar-divider my-0">
                 <ul class="nav flex-column" id="mainNav">
                     <li class="sidebar-heading">Main</li>
                     <li class="nav-item"><a class="nav-link active" href="#" data-section="home"><i class="fas fa-home fa-fw me-2"></i>Dashboard</a></li>
@@ -350,18 +442,13 @@
                                 </div>
                             </div>
                         </div>
-                          <div class="col-xl-3 col-md-6 mb-4">
-                            <div class="card border-left-info h-100 py-2">
-                                <div class="card-body">
-                                    <div class="row no-gutters align-items-center">
-                                        <div class="col mr-2">
-                                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                                                Total Flock Value</div>
-                                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="flockValue">₹0.00</div>
-                                        </div>
-                                        <div class="col-auto">
-                                            <i class="fas fa-hand-holding-usd fa-2x text-gray-300"></i>
-                                        </div>
+                        <div class="col-xl-3 col-md-6 mb-4">
+                            <div class="card bg-info text-white h-100">
+                                <div class="card-body d-flex justify-content-between align-items-center">
+                                    <i class="fas fa-hand-holding-usd fa-3x"></i>
+                                    <div class="text-end">
+                                        <div class="fs-4 fw-bold" id="flockValue">₹0.00</div>
+                                        <div class="text-white-75 small">Total Flock Value</div>
                                     </div>
                                 </div>
                             </div>
@@ -373,7 +460,10 @@
                         <div class="col-lg-8">
                             <h2 class="mb-4">Add New Health Record</h2>
                             <form id="sheepHealthForm" class="needs-navigation">
-                                <div class="mb-3"><label for="sheepId" class="form-label">Sheep ID</label><input type="text" class="form-control" id="sheepId" required></div>
+                                <div class="mb-3">
+                                    <label for="sheepId" class="form-label">Sheep ID</label><input type="text" class="form-control" id="sheepId" readonly required placeholder="Auto-generated...">
+                                    <div class="form-text">The Sheep ID will be automatically generated upon adding the record.</div>
+                                </div>
                                 <div class="row">
                                     <div class="col-md-6 mb-3"><label for="gender" class="form-label">Gender</label><select class="form-select" id="gender" required><option value="Female">Female</option><option value="Male">Male</option></select></div>
                                     <div class="col-md-6 mb-3"><label for="breed" class="form-label">Breed</label><input type="text" class="form-control" id="breed" placeholder="e.g., Merino, Dorper"></div>
@@ -412,245 +502,335 @@
 
         <!-- Healthy Records Section -->
         <div id="recordsSection" class="hidden">
-            <h2 class="mb-4">Healthy & Recovering Records</h2>
-              <div class="d-flex justify-content-between align-items-center mb-3">
-                <div class="input-group w-50">
-                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                    <input type="text" class="form-control" id="searchInput" data-table-body-id="healthyRecordsTableBody" placeholder="Search by Sheep ID...">
+            <div class="card shadow-sm">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h5 class="m-0 font-weight-bold text-primary"><i class="fas fa-heartbeat fa-fw me-2"></i>Healthy & Recovering Records</h5>
+                    <button class="btn btn-outline-success btn-sm js-export-healthy"><i class="fas fa-download me-1"></i> Export CSV</button>
                 </div>
-                <button class="btn btn-outline-success js-export-healthy"><i class="fas fa-download"></i> Export CSV</button>
-            </div>
-            <div class="table-responsive table-scrollable">
-                <table class="table table-hover table-striped">
-                    <thead><tr><th>Sheep ID</th><th>Gender</th><th>Breed</th><th>Status</th><th>Date</th><th>Weight</th><th>Temp</th><th>Buying Price</th><th>Notes</th><th>Actions</th></tr></thead>
-                    <tbody id="healthyRecordsTableBody"></tbody>
-                </table>
+                <div class="card-body">
+                    <div class="d-flex justify-content-end mb-3">
+                        <div class="input-group" style="max-width: 350px;">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="searchInput" data-table-body-id="healthyRecordsTableBody" placeholder="Search by ID, breed, etc...">
+                        </div>
+                    </div>
+                    <div class="table-responsive table-scrollable">
+                        <table class="table table-hover table-striped" id="healthyRecordsTable" data-table-key="healthy">
+                            <thead>
+                                <tr>
+                                    <th class="sortable" data-sort="sheepId">Sheep ID <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="gender">Gender <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="breed">Breed <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="healthStatus">Health Status <span class="sort-icon"></span></th>
+                                    <th class="sortable text-nowrap" data-sort="dateRecorded">Date Recorded <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="weight">Weight (kg) <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="temperature">Temp (°C) <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="buyingPrice">Buying Price <span class="sort-icon"></span></th>
+                                    <th>Notes</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="healthyRecordsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- Overdue Records Section -->
         <div id="overdueSection" class="hidden">
-            <h2 class="mb-4 text-danger"><i class="fas fa-exclamation-triangle"></i> Overdue Follow-up Records</h2>
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div class="input-group w-50">
-                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                    <input type="text" class="form-control" id="overdueSearchInput" data-table-body-id="overdueRecordsTableBody" placeholder="Search by Sheep ID...">
+            <div class="card shadow-sm">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between bg-danger-subtle">
+                    <h5 class="m-0 font-weight-bold text-danger"><i class="fas fa-exclamation-triangle fa-fw me-2"></i>Overdue Follow-up Records</h5>
+                    <button class="btn btn-outline-success btn-sm js-export-overdue"><i class="fas fa-download me-1"></i> Export CSV</button>
                 </div>
-                <button class="btn btn-outline-success js-export-overdue"><i class="fas fa-download"></i> Export CSV</button>
-            </div>
-            <p class="text-muted">This section lists all sheep with a follow-up date that has passed. These records have been moved from the Corentin & Treatment lists for priority attention.</p>
-            <div class="table-responsive table-scrollable">
-                <table class="table table-hover table-striped">
-                    <thead><tr><th>Sheep ID</th><th>Status</th><th>Date</th><th>Last Update</th><th>Follow-up Date</th><th>Actions</th></tr></thead>
-                    <tbody id="overdueRecordsTableBody"></tbody>
-                </table>
+                <div class="card-body">
+                    <p class="text-muted small">This section lists all sheep with a follow-up date that has passed. These records have been moved from the Corentin & Treatment lists for priority attention.</p>
+                    <div class="d-flex justify-content-end mb-3">
+                        <div class="input-group" style="max-width: 350px;">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="overdueSearchInput" data-table-body-id="overdueRecordsTableBody" placeholder="Search by Sheep ID...">
+                        </div>
+                    </div>
+                    <div class="table-responsive table-scrollable">
+                        <table class="table table-hover table-striped" id="overdueRecordsTable" data-table-key="overdue">
+                            <thead>
+                                <tr>
+                                    <th class="sortable" data-sort="sheepId">Sheep ID <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="healthStatus">Status <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="dateRecorded">Date Recorded <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="computedLastUpdate">Last Update <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="computedFollowUpDate">Follow-up Date <span class="sort-icon"></span></th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="overdueRecordsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- Corentin Records Section -->
         <div id="corentinSection" class="hidden">
-            <h2 class="mb-4">Corentin Records</h2>
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div class="input-group w-50">
-                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                    <input type="text" class="form-control" id="corentinSearchInput" data-table-body-id="corentinRecordsTableBody" placeholder="Search by Sheep ID...">
+            <div class="card shadow-sm">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h5 class="m-0 font-weight-bold text-danger"><i class="fas fa-biohazard fa-fw me-2"></i>Corentin Records</h5>
+                    <button class="btn btn-outline-success btn-sm js-export-corentin"><i class="fas fa-download me-1"></i> Export CSV</button>
                 </div>
-                <button class="btn btn-outline-success js-export-corentin"><i class="fas fa-download"></i> Export CSV</button>
-            </div>
-            <div class="table-responsive table-scrollable">
-                <table class="table table-hover table-striped">
-                    <thead><tr><th>Sheep ID</th><th>Status</th><th>Date</th><th>Last Update</th><th>Follow-up Date</th><th>Actions</th></tr></thead>
-                    <tbody id="corentinRecordsTableBody"></tbody>
-                </table>
+                <div class="card-body">
+                    <div class="d-flex justify-content-end mb-3">
+                        <div class="input-group" style="max-width: 350px;">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="corentinSearchInput" data-table-body-id="corentinRecordsTableBody" placeholder="Search by Sheep ID...">
+                        </div>
+                    </div>
+                    <div class="table-responsive table-scrollable">
+                        <table class="table table-hover table-striped" id="corentinRecordsTable" data-table-key="corentin">
+                            <thead>
+                                <tr>
+                                    <th class="sortable" data-sort="sheepId">Sheep ID <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="healthStatus">Status <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="dateRecorded">Date Recorded <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="computedLastUpdate">Last Update <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="computedFollowUpDate">Follow-up Date <span class="sort-icon"></span></th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="corentinRecordsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- Treatment Records Section -->
         <div id="treatmentSection" class="hidden">
-            <h2 class="mb-4">Under Treatment Records</h2>
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div class="input-group w-50">
-                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                    <input type="text" class="form-control" id="treatmentSearchInput" data-table-body-id="treatmentRecordsTableBody" placeholder="Search by Sheep ID...">
+            <div class="card shadow-sm">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h5 class="m-0 font-weight-bold text-warning"><i class="fas fa-pills fa-fw me-2"></i>Under Treatment Records</h5>
+                    <button class="btn btn-outline-success btn-sm js-export-under-treatment"><i class="fas fa-download me-1"></i> Export CSV</button>
                 </div>
-                <button class="btn btn-outline-success js-export-under-treatment"><i class="fas fa-download"></i> Export CSV</button>
-            </div>
-            <div class="table-responsive table-scrollable">
-                <table class="table table-hover table-striped">
-                    <thead><tr><th>Sheep ID</th><th>Status</th><th>Date</th><th>Last Update</th><th>Follow-up Date</th><th>Actions</th></tr></thead>
-                    <tbody id="treatmentRecordsTableBody"></tbody>
-                </table>
+                <div class="card-body">
+                    <div class="d-flex justify-content-end mb-3">
+                        <div class="input-group" style="max-width: 350px;">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="treatmentSearchInput" data-table-body-id="treatmentRecordsTableBody" placeholder="Search by Sheep ID...">
+                        </div>
+                    </div>
+                    <div class="table-responsive table-scrollable">
+                        <table class="table table-hover table-striped" id="treatmentRecordsTable" data-table-key="treatment">
+                            <thead>
+                                <tr>
+                                    <th class="sortable" data-sort="sheepId">Sheep ID <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="healthStatus">Status <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="dateRecorded">Date Recorded <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="computedLastUpdate">Last Update <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="computedFollowUpDate">Follow-up Date <span class="sort-icon"></span></th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="treatmentRecordsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- Pregnant Records Section -->
         <div id="pregnantSection" class="hidden">
-            <h2 class="mb-4">Pregnant Records</h2>
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div class="input-group w-50">
-                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                    <input type="text" class="form-control" id="pregnantSearchInput" data-table-body-id="pregnantRecordsTableBody" placeholder="Search by Sheep ID...">
+            <div class="card shadow-sm">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h5 class="m-0 font-weight-bold" style="color: var(--color-purple);"><i class="fas fa-baby-carriage fa-fw me-2"></i>Pregnant Records</h5>
+                    <button class="btn btn-outline-success btn-sm js-export-pregnant"><i class="fas fa-download me-1"></i> Export CSV</button>
                 </div>
-                <button class="btn btn-outline-success js-export-pregnant"><i class="fas fa-download"></i> Export CSV</button>
-            </div>
-            <div class="table-responsive table-scrollable">
-                <table class="table table-hover table-striped">
-                    <thead><tr><th>Sheep ID</th><th>Status</th><th>Date</th><th>Last Update</th><th>Follow-up Date</th><th>Actions</th></tr></thead>
-                    <tbody id="pregnantRecordsTableBody"></tbody>
-                </table>
+                <div class="card-body">
+                    <div class="d-flex justify-content-end mb-3">
+                        <div class="input-group" style="max-width: 350px;">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="pregnantSearchInput" data-table-body-id="pregnantRecordsTableBody" placeholder="Search by Sheep ID...">
+                        </div>
+                    </div>
+                    <div class="table-responsive table-scrollable">
+                        <table class="table table-hover table-striped" id="pregnantRecordsTable" data-table-key="pregnant">
+                            <thead>
+                                <tr>
+                                    <th class="sortable" data-sort="sheepId">Sheep ID <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="healthStatus">Status <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="dateRecorded">Date Recorded <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="computedLastUpdate">Last Update <span class="sort-icon"></span></th>
+                                    <th class="sortable" data-sort="computedFollowUpDate">Follow-up Date <span class="sort-icon"></span></th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pregnantRecordsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- Health Schedule Section -->
         <div id="scheduleSection" class="hidden">
-            <div class="d-flex align-items-center mb-4">
-                <i class="fas fa-calendar-alt fa-2x text-primary me-3"></i>
-                <div>
-                    <h2 class="mb-0">Preventative Care Schedule</h2>
-                    <p class="text-muted mb-0">Track routine deworming and vaccinations for your flock.</p>
+            <div class="card shadow-sm">
+                <div class="card-header py-3">
+                    <h5 class="m-0 font-weight-bold text-primary"><i class="fas fa-calendar-alt fa-fw me-2"></i>Preventative Care Schedule</h5>
                 </div>
-            </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-4">Track routine deworming and vaccinations for your flock.</p>
 
-            <!-- Summary Cards -->
-            <div class="row mb-4">
-                <div class="col-lg-4 col-md-6 mb-3">
-                    <div class="card text-white bg-danger h-100">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <i class="fas fa-exclamation-circle fa-3x"></i>
-                                <div class="text-end">
-                                    <div class="fs-4 fw-bold" id="scheduleOverdueCount">0</div>
-                                    <div class="small">Overdue Items</div>
+                    <!-- Summary Cards -->
+                    <div class="row mb-4">
+                        <div class="col-lg-4 col-md-6 mb-3">
+                            <div class="card text-white bg-danger h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <i class="fas fa-exclamation-circle fa-3x"></i>
+                                        <div class="text-end">
+                                            <div class="fs-4 fw-bold" id="scheduleOverdueCount">0</div>
+                                            <div class="small">Overdue Items</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4 col-md-6 mb-3">
+                            <div class="card text-dark bg-warning h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <i class="fas fa-bell fa-3x"></i>
+                                        <div class="text-end">
+                                            <div class="fs-4 fw-bold" id="scheduleUpcomingCount">0</div>
+                                            <div class="small">Upcoming (30 Days)</div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="col-lg-4 col-md-6 mb-3">
-                    <div class="card text-dark bg-warning h-100">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <i class="fas fa-bell fa-3x"></i>
-                                <div class="text-end">
-                                    <div class="fs-4 fw-bold" id="scheduleUpcomingCount">0</div>
-                                    <div class="small">Upcoming (30 Days)</div>
+
+                    <!-- Toolbar -->
+                    <div class="card card-body bg-light border-0 mb-4">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                            <!-- Left side: Search -->
+                            <div class="input-group" style="max-width: 350px; flex-grow: 1;">
+                                <span class="input-group-text" id="schedule-search-icon"><i class="fas fa-search"></i></span>
+                                <input type="text" class="form-control" id="scheduleSearchInput" data-table-body-id="scheduleTableBody" placeholder="Search by Sheep ID..." aria-label="Search by Sheep ID" aria-describedby="schedule-search-icon">
+                            </div>
+                            
+                            <!-- Right side: Filters & Actions -->
+                            <div class="d-flex align-items-center flex-wrap gap-2">
+                                <div class="btn-group" id="scheduleFilterButtons" role="group" aria-label="Filter schedule view">
+                                    <button type="button" class="btn btn-outline-secondary active" data-filter="all">All</button>
+                                    <button type="button" class="btn btn-outline-secondary" data-filter="overdue">Overdue</button>
+                                    <button type="button" class="btn btn-outline-secondary" data-filter="upcoming">Upcoming (30 days)</button>
                                 </div>
+                                <button id="batchLogBtn" class="btn btn-primary" style="display: none;">
+                                    <i class="fas fa-syringe me-2"></i>Log Batch Treatment
+                                </button>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
 
-            <!-- Toolbar -->
-            <div class="card card-body bg-light border-0 mb-4">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-                    <!-- Left side: Search -->
-                    <div class="input-group" style="max-width: 350px; flex-grow: 1;">
-                        <span class="input-group-text" id="schedule-search-icon"><i class="fas fa-search"></i></span>
-                        <input type="text" class="form-control" id="scheduleSearchInput" data-table-body-id="scheduleTableBody" placeholder="Search by Sheep ID..." aria-label="Search by Sheep ID" aria-describedby="schedule-search-icon">
-                    </div>
-                    
-                    <!-- Right side: Filters & Actions -->
-                    <div class="d-flex align-items-center flex-wrap gap-2">
-                        <div class="btn-group" id="scheduleFilterButtons" role="group" aria-label="Filter schedule view">
-                            <button type="button" class="btn btn-outline-secondary active" data-filter="all">All</button>
-                            <button type="button" class="btn btn-outline-secondary" data-filter="overdue">Overdue</button>
-                            <button type="button" class="btn btn-outline-secondary" data-filter="upcoming">Upcoming (30 days)</button>
-                        </div>
-                        <button id="batchLogBtn" class="btn btn-primary" style="display: none;">
-                            <i class="fas fa-syringe me-2"></i>Log Batch Treatment
-                        </button>
+                    <div class="table-responsive shadow-sm rounded table-scrollable">
+                        <table class="table table-hover align-middle mb-0" id="scheduleTable" style="--bs-table-hover-bg: rgba(0,0,0,0.04);">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th scope="col" class="text-center" style="width: 40px;"><input class="form-check-input" type="checkbox" id="selectAllSchedule" title="Select all on this page"></th>
+                                    <th scope="col">Sheep ID</th>
+                                    <th scope="col">Deworming</th>
+                                    <th scope="col">Vaccination</th>
+                                    <th scope="col" class="text-center" style="width: 120px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scheduleTableBody">
+                                <!-- JavaScript will populate this section -->
+                                <tr><td colspan="5" class="text-center p-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-            </div>
-
-            <div class="table-responsive shadow-sm rounded table-scrollable">
-                <table class="table table-hover align-middle mb-0" id="scheduleTable" style="--bs-table-hover-bg: rgba(0,0,0,0.04);">
-                    <thead class="table-dark">
-                        <tr>
-                            <th scope="col" class="text-center" style="width: 40px;"><input class="form-check-input" type="checkbox" id="selectAllSchedule" title="Select all on this page"></th>
-                            <th scope="col">Sheep ID</th>
-                            <th scope="col">Deworming</th>
-                            <th scope="col">Vaccination</th>
-                            <th scope="col" class="text-center" style="width: 120px;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="scheduleTableBody">
-                        <!-- JavaScript will populate this section -->
-                        <tr><td colspan="5" class="text-center p-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></td></tr>
-                    </tbody>
-                </table>
             </div>
         </div>
 
         <!-- Weekly Tracking Section -->
         <div id="weeklySection" class="hidden">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="mb-0">Weekly Health Tracking</h2>
-            </div>
-            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                 <div class="input-group" style="max-width: 400px;">
-                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                    <input type="text" class="form-control" id="weeklySearchInput" data-table-body-id="weeklyTableBody" placeholder="Search by Sheep ID...">
+            <div class="card shadow-sm">
+                <div class="card-header py-3">
+                    <h5 class="m-0 font-weight-bold text-primary"><i class="fas fa-calendar-week fa-fw me-2"></i>Weekly Health Tracking</h5>
                 </div>
-                <div class="btn-group" id="weeklyFilterButtons">
-                    <button class="btn btn-outline-secondary active" data-filter="all">All</button>
-                    <button class="btn btn-outline-secondary" data-filter="checked">Checked</button>
-                    <button class="btn btn-outline-secondary" data-filter="needs_check">Needs Check</button>
+                <div class="card-body">
+                    <p class="text-muted small">
+                        This section provides a summary of sheep health checks over the last 7 days.
+                        A sheep is considered "checked" if a new health record was created or a treatment was logged for it within this period.
+                    </p>
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                        <div class="input-group" style="max-width: 400px;">
+                           <span class="input-group-text"><i class="fas fa-search"></i></span>
+                           <input type="text" class="form-control" id="weeklySearchInput" data-table-body-id="weeklyTableBody" placeholder="Search by Sheep ID...">
+                       </div>
+                       <div class="btn-group" id="weeklyFilterButtons">
+                           <button class="btn btn-outline-secondary active" data-filter="all">All</button>
+                           <button class="btn btn-outline-secondary" data-filter="checked">Checked</button>
+                           <button class="btn btn-outline-secondary" data-filter="needs_check">Needs Check</button>
+                       </div>
+                   </div>
+                    <div class="table-responsive table-scrollable">
+                        <table class="table table-hover table-striped" id="weeklyTable">
+                            <thead><tr><th>Sheep ID</th><th>Health Status</th><th>Last Check Date</th><th>Weekly Status</th><th>Actions</th></tr></thead>
+                            <tbody id="weeklyTableBody"></tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
-            <p class="text-muted mb-4">
-                This section provides a summary of sheep health checks over the last 7 days.
-                A sheep is considered "checked" if a new health record was created or a treatment was logged for it within this period.
-            </p>
-            <div class="table-responsive table-scrollable">
-                <table class="table table-hover table-striped" id="weeklyTable">
-                    <thead><tr><th>Sheep ID</th><th>Health Status</th><th>Last Check Date</th><th>Weekly Status</th><th>Actions</th></tr></thead>
-                    <tbody id="weeklyTableBody"></tbody>
-                </table>
             </div>
         </div>
 
         <!-- Weight Tracking Section -->
         <div id="weightSection" class="hidden">
-            <h2 class="mb-4">Weight Tracking</h2>
-            <p class="text-muted mb-4">
-                Select a sheep to view its weight progression from its record start date.
-                Weight can be logged initially when creating a record, or subsequently via the "Manage" button on any record list.
-            </p>
-            <div class="row align-items-center mb-4">
-                <div class="col-md-5">
-                    <label for="weightSheepSelector" class="form-label"><strong>Select Sheep:</strong></label>
-                    <select id="weightSheepSelector" class="form-select">
-                        <option selected disabled>Loading sheep...</option>
-                    </select>
+            <div class="card shadow-sm">
+                <div class="card-header py-3">
+                    <h5 class="m-0 font-weight-bold text-primary"><i class="fas fa-chart-line fa-fw me-2"></i>Weight Tracking</h5>
                 </div>
-                <div class="col-md-7 text-md-end mt-2 mt-md-0">
-                    <div id="latestWeightDisplay" class="d-inline-block me-3" style="display: none !important;">
-                        <span class="text-muted">Latest Weight:</span>
-                        <span id="latestWeightValue" class="badge bg-primary latest-weight-value"></span>
+                <div class="card-body">
+                    <p class="text-muted small">
+                        Select a sheep to view its weight progression from its record start date.
+                        Weight can be logged initially when creating a record, or subsequently via the "Manage" button on any record list.
+                    </p>
+                    <div class="row align-items-center mb-4">
+                        <div class="col-md-5">
+                            <label for="weightSheepSelector" class="form-label"><strong>Select Sheep:</strong></label>
+                            <select id="weightSheepSelector" class="form-select">
+                                <option selected disabled>Loading sheep...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-7 text-md-end mt-2 mt-md-0">
+                            <div id="latestWeightDisplay" class="d-inline-block me-3" style="display: none !important;">
+                                <span class="text-muted">Latest Weight:</span>
+                                <span id="latestWeightValue" class="badge bg-primary latest-weight-value"></span>
+                            </div>
+                            <button id="addWeightBtn" class="btn btn-success" style="display: none;">
+                                <i class="fas fa-plus-circle me-2"></i>Add Weight Entry
+                            </button>
+                        </div>
                     </div>
-                    <button id="addWeightBtn" class="btn btn-success" style="display: none;">
-                        <i class="fas fa-plus-circle me-2"></i>Add Weight Entry
-                    </button>
+        
+                    <div id="noWeightData" class="alert alert-info text-center">
+                        Select a sheep to view its chart.
+                    </div>
+        
+                    <div id="weightDisplayArea" style="display: none;">
+                        <div class="row">
+                            <div class="col-lg-8 mb-4">
+                                <div id="weightChartContainer"><canvas id="weightChart"></canvas></div>
+                            </div>
+                            <div class="col-lg-4 mb-4">
+                                <div id="weightStatsContainer" class="card h-100"><div class="card-body text-center" id="weightStatsBody"></div></div>
+                            </div>
+                        </div>
+                        <h4 class="mt-4">Weight History</h4>
+                        <div id="weightTableContainer" class="table-responsive"></div>
+                    </div>
                 </div>
-            </div>
-
-            <div id="noWeightData" class="alert alert-info text-center">
-                Select a sheep to view its chart.
-            </div>
-
-            <div id="weightDisplayArea" style="display: none;">
-                <div class="row">
-                    <div class="col-lg-8 mb-4">
-                        <div id="weightChartContainer"><canvas id="weightChart"></canvas></div>
-                    </div>
-                    <div class="col-lg-4 mb-4">
-                        <div id="weightStatsContainer" class="card h-100"><div class="card-body text-center" id="weightStatsBody"></div></div>
-                    </div>
-                </div>
-                <h4 class="mt-4">Weight History</h4>
-                <div id="weightTableContainer" class="table-responsive"></div>
             </div>
         </div>
 
@@ -670,7 +850,7 @@
                 </div>
             </div>
 
-            <div id="noProfileData" class="text-center p-5 card shadow-sm">
+            <div id="noProfileData" class="text-center p-5 card shadow-sm mx-auto" style="max-width: 1050px;">
                 <i class="fas fa-id-card fa-3x text-muted mb-3"></i>
                 <h4>Select a sheep to view its profile.</h4>
                 <p class="text-muted">Use the dropdown or search bar above to get started.</p>
@@ -772,7 +952,7 @@
                                     <!-- Individual Growth Summary - Populated by JS -->
                                     <div id="profileWeightStatsContainer" class="card mb-4">
                                     </div>
-                                    <div id="profileWeightChartContainer" class="mb-4" style="position: relative; height:250px"><canvas id="profileWeightChart"></canvas></div>
+                                    <div id="profileWeightChartContainer" class="mb-4" style="position: relative; height:450px"><canvas id="profileWeightChart"></canvas></div>
                                     <h6 class="mt-3">Weight Log</h6>
                                     <div id="profileWeightTableContainer" class="table-responsive" style="max-height: 300px;"></div>
                                 </div>
@@ -794,7 +974,7 @@
         
         <!-- Sold Records Section -->
         <div id="saledSection" class="hidden">
-            <h2 class="mb-4">Sold & Deceased Records</h2>
+            <h2 class="mb-4">Sold Records</h2>
             <div class="d-flex justify-content-between align-items-center mb-3">
                     <div class="input-group w-50">
                         <span class="input-group-text"><i class="fas fa-search"></i></span>
@@ -808,7 +988,7 @@
                 <div class="col-lg-6 mb-4 mb-lg-0">
                     <div class="card h-100">
                         <div class="card-header">Monthly Sales Summary</div>
-                        <div id="monthlySalesSummary" class="card-body p-0"></div>
+                        <div id="soldMonthlySalesSummary" class="card-body p-0"></div>
                     </div>
                 </div>
                 <div class="col-lg-6 mb-4 mb-lg-0">
@@ -871,19 +1051,25 @@
 
         <!-- Archived Records Section -->
         <div id="archivedSection" class="hidden">
-            <h2 class="mb-4">Archived Records (Deceased)</h2>
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div class="input-group w-50">
-                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                    <input type="text" class="form-control" id="archivedSearchInput" data-table-body-id="archivedRecordsTableBody" placeholder="Search by Sheep ID...">
+            <div class="card shadow-sm">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h5 class="m-0 font-weight-bold text-muted"><i class="fas fa-archive fa-fw me-2"></i>Archived Records (Deceased)</h5>
+                    <button class="btn btn-outline-success btn-sm js-export-archived"><i class="fas fa-download me-1"></i> Export CSV</button>
                 </div>
-                <button class="btn btn-outline-success js-export-archived"><i class="fas fa-download"></i> Export CSV</button>
-            </div>
-            <div class="table-responsive table-scrollable">
-                <table class="table table-hover table-striped">
-                    <thead><tr><th scope="col">Sheep Details</th><th scope="col">Archive Details</th><th scope="col">Status at Archive</th><th scope="col" class="text-center">Actions</th></tr></thead>
-                    <tbody id="archivedRecordsTableBody"></tbody>
-                </table>
+                <div class="card-body">
+                    <div class="d-flex justify-content-end mb-3">
+                        <div class="input-group" style="max-width: 350px;">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="archivedSearchInput" data-table-body-id="archivedRecordsTableBody" placeholder="Search by Sheep ID...">
+                        </div>
+                    </div>
+                    <div class="table-responsive table-scrollable">
+                        <table class="table table-hover table-striped">
+                            <thead><tr><th scope="col">Sheep Details</th><th scope="col">Archive Details</th><th scope="col">Status at Archive</th><th scope="col" class="text-center">Actions</th></tr></thead>
+                            <tbody id="archivedRecordsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -891,63 +1077,78 @@
              FEED INVENTORY SECTION
              ================================================================== -->
         <div id="feedSection" class="hidden">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">Feed Inventory & Cost Management</h1>
+             <!-- 1. Page Header -->
+            <div class="d-flex align-items-center mb-4">
+                <i class="fas fa-wheat-awn fa-2x text-primary me-3"></i>
+                <div>
+                    <h2 class="mb-0">Feed Inventory & Cost Management</h2>
+                    <p class="text-muted mb-0">Track feed stock, one-time costs, and total inventory value.</p>
+                </div>
             </div>
-
+         
             <div class="row">
-                <!-- Add New Feed Item Card -->
+                 <!-- 2. Add New Item Form (Improved Layout) -->
                 <div class="col-lg-4 mb-4">
-                    <div class="card shadow-sm">
-                        <div class="card-header">
-                            <h5 class="mb-0">Add New Feed Item</h5>
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Add New Item</h5>
                         </div>
                         <div class="card-body">
                             <form id="addFeedForm">
                                 <div class="mb-3">
-                                    <label for="feedName" class="form-label">Feed Name</label>
-                                    <input type="text" class="form-control" id="feedName" placeholder="e.g., Starter Pellets" required>
+                                    <label for="feedName" class="form-label">Item Name</label>
+                                    <input type="text" class="form-control" id="feedName" placeholder="e.g., Starter Pellets, Travel Cost" required>
                                 </div>
                                 <div class="mb-3">
                                     <label for="feedPurchaseDate" class="form-label">Purchase Date</label>
                                     <input type="date" class="form-control" id="feedPurchaseDate" required>
                                 </div>
-                                <div class="mb-3">
-                                    <label for="feedPricePerKg" class="form-label">Price per KG (₹)</label>
-                                    <input type="number" step="0.01" class="form-control" id="feedPricePerKg" placeholder="e.g., 25.50" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="feedQuantity" class="form-label">Quantity on Hand (KG)</label>
-                                    <input type="number" step="0.1" class="form-control" id="feedQuantity" placeholder="e.g., 50" required>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="feedPricePerKg" class="form-label">Price/Cost (₹)</label>
+                                        <input type="number" step="0.01" class="form-control" id="feedPricePerKg" placeholder="25.50" required>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="feedQuantity" class="form-label">Quantity (KG)</label>
+                                        <input type="number" step="0.1" class="form-control" id="feedQuantity" placeholder="50" required>
+                                        <div class="form-text">Enter 0 for non-inventory costs.</div>
+                                    </div>
                                 </div>
                                 <div class="d-grid">
-                                    <button type="submit" class="btn btn-primary">Add to Inventory</button>
+                                    <button type="submit" class="btn btn-primary">Add to Log</button>
                                 </div>
                             </form>
                         </div>
                     </div>
                 </div>
-
-                <!-- Feed Inventory Table Card -->
+         
+                 <!-- 3. Inventory Table (Improved) -->
                 <div class="col-lg-8 mb-4">
                     <div class="card shadow-sm">
                         <div class="card-header">
-                            <h5 class="mb-0">Current Inventory</h5>
+                            <h5 class="mb-0"><i class="fas fa-clipboard-list me-2"></i>Current Log</h5>
                         </div>
-                        <div class="table-responsive">
+                        <div class="table-responsive table-scrollable">
                             <table class="table table-striped table-hover mb-0">
-                                <thead>
+                                <thead class="table-dark">
                                     <tr>
-                                        <th>Feed Name</th>
-                                        <th>Purchase Date</th>
-                                        <th>Price per KG</th>
-                                        <th>Quantity on Hand</th>
+                                        <th>Item Name</th>
+                                        <th class="text-center">Purchase Date</th>
+                                        <th class="text-end">Price/Cost (₹)</th>
+                                        <th class="text-end">Quantity on Hand</th>
+                                        <th class="text-end">Total Value (₹)</th>
                                         <th class="text-center">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="feedInventoryTableBody">
-                                    <!-- Feed items will be rendered here by JavaScript -->
+                                     <!-- Feed items will be rendered here by JavaScript -->
                                 </tbody>
+                                <tfoot class="table-light fw-bold">
+                                    <tr>
+                                        <td colspan="4" class="text-end fs-5">Grand Total:</td>
+                                        <td id="feedInventoryTotalValue" class="text-end fs-5" colspan="2">₹0.00</td>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
                     </div>
@@ -955,89 +1156,125 @@
             </div>
         </div>
 
-        <!-- =================================================================
+         <!-- =================================================================
              FINANCIALS SECTION
              ================================================================== -->
         <div id="financialsSection" class="hidden">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">Financials Dashboard</h1>
-                <p class="text-muted mb-0">Metrics below reflect the currently selected global date filters.</p>
+             <!-- 1. Page Header -->
+            <div class="d-flex align-items-center mb-4">
+                <i class="fas fa-chart-pie fa-2x text-primary me-3"></i>
+                <div>
+                    <h2 class="mb-0">Financials Dashboard</h2>
+                    <p class="text-muted mb-0">Analyze revenue, costs, and profitability for the selected period.</p>
+                </div>
             </div>
 
-            <!-- Financial Summary Cards -->
+             <!-- 2. Key Metric Cards -->
             <div class="row">
-                <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-primary shadow h-100 py-2"><div class="card-body"><div class="row no-gutters align-items-center"><div class="col mr-2"><div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Investment (New Sheep)</div><div class="h5 mb-0 font-weight-bold text-gray-800" id="financialsInvestment">₹0.00</div></div><div class="col-auto"><i class="fas fa-dolly fa-2x text-gray-300"></i></div></div></div></div></div>
-                <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-danger shadow h-100 py-2"><div class="card-body"><div class="row no-gutters align-items-center"><div class="col mr-2"><div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Total Expenses (Care & Feed)</div><div class="h5 mb-0 font-weight-bold text-gray-800" id="financialsExpenses">₹0.00</div></div><div class="col-auto"><i class="fas fa-file-invoice-dollar fa-2x text-gray-300"></i></div></div></div></div></div>
-                <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-success shadow h-100 py-2"><div class="card-body"><div class="row no-gutters align-items-center"><div class="col mr-2"><div class="text-xs font-weight-bold text-success text-uppercase mb-1">Revenue (From Sales)</div><div class="h5 mb-0 font-weight-bold text-gray-800" id="financialsRevenue">₹0.00</div></div><div class="col-auto"><i class="fas fa-dollar-sign fa-2x text-gray-300"></i></div></div></div></div></div>
-                <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-info shadow h-100 py-2"><div class="card-body"><div class="row no-gutters align-items-center"><div class="col mr-2"><div class="text-xs font-weight-bold text-info text-uppercase mb-1">Profit / Loss</div><div class="h5 mb-0 font-weight-bold text-gray-800" id="financialsProfitLoss">₹0.00</div></div><div class="col-auto"><i class="fas fa-balance-scale fa-2x text-gray-300"></i></div></div></div></div></div>
-                <!-- Add this card inside the 'row' div for the financial summary cards -->
                 <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-dark shadow h-100 py-2">
+                    <div class="card bg-primary text-white shadow h-100"><div class="card-body"><div class="d-flex justify-content-between align-items-center"><i class="fas fa-dollar-sign fa-3x"></i><div class="text-end"><div id="financialsRevenue" class="fs-4 fw-bold">₹0.00</div><div class="small text-white-75">Total Revenue</div></div></div></div></div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-danger shadow h-100 py-2"><div class="card-body"><div class="row no-gutters align-items-center"><div class="col mr-2"><div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Cost of Goods Sold</div><div id="financialsCogs" class="h5 mb-0 font-weight-bold text-gray-800">₹0.00</div></div><div class="col-auto"><i class="fas fa-receipt fa-2x text-gray-800"></i></div></div></div></div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-success shadow h-100 py-2">
                         <div class="card-body">
                             <div class="row no-gutters align-items-center">
                                 <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-dark text-uppercase mb-1" title="Revenue - (All Investment + All Expenses) + Feed Inventory Value">Overall Net Position</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800" id="financialsGrandTotal">₹0.00</div>
+                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Gross Profit</div>
+                                    <div id="financialsGrossProfit" class="h5 mb-0 font-weight-bold text-gray-800">₹0.00</div>
                                 </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-calculator fa-2x text-gray-300"></i>
+                                <div class="col-auto"><i class="fas fa-cash-register fa-2x text-gray-800"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-warning shadow h-100 py-2"><div class="card-body"><div class="row no-gutters align-items-center"><div class="col mr-2"><div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Feed & Other Costs</div><div id="financialsOpEx" class="h5 mb-0 font-weight-bold text-gray-800">₹0.00</div></div><div class="col-auto"><i class="fas fa-file-invoice-dollar fa-2x text-gray-800"></i></div></div></div></div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-info shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Net Profit / Loss</div>
+                                    <div id="financialsNetProfit" class="h5 mb-0 font-weight-bold text-gray-800">₹0.00</div>
                                 </div>
+                                <div class="col-auto"><i class="fas fa-scale-balanced fa-2x text-gray-800"></i></div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Financials Chart -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="card shadow-sm">
-                        <div class="card-header">
-                            <h6 class="m-0 font-weight-bold text-primary">Monthly Revenue vs. Expenses</h6>
+             <!-- 3. Performance Overview Card -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-area me-2"></i>Performance Overview</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-lg-8 mb-4 mb-lg-0">
+                            <h6 class="text-center text-muted">Monthly Performance (Revenue vs. Cost)</h6>
+                            <div class="chart-area" style="height: 320px;"><canvas id="financialsChart"></canvas></div>
+                            <div id="noFinancialsChartData" class="text-center" style="display: none;">No data for this period.</div>
                         </div>
-                        <div class="card-body">
-                            <div style="position: relative; height:350px"><canvas id="financialsChart"></canvas></div>
-                            <div id="noFinancialsChartData" class="text-center text-muted p-4" style="display: none;">
-                                Not enough data to generate a chart for the selected period.
-                            </div>
+                        <div class="col-lg-4">
+                            <h6 class="text-center text-muted">Feed & Other Costs</h6>
+                            <div class="chart-pie pt-4" style="height: 320px;"><canvas id="expenseBreakdownChart"></canvas></div>
+                            <div id="noExpenseChartData" class="text-center" style="display: none;">No expenses for this period.</div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Detailed Breakdown Row -->
-            <div class="row mt-4">
-                <div class="col-lg-8">
-                    <div class="card shadow-sm">
-                        <div class="card-header py-3">
-                            <h6 class="m-0 font-weight-bold text-primary">Detailed Financial Breakdown</h6>
-                        </div>
-                        <div class="card-body">
-                            <p class="small text-muted mb-2">All values below are based on the currently selected global date filters.</p>
-                            <div class="table-responsive">
-                                <table class="table table-sm table-bordered mb-0">
-                                    <tbody>
-                                        <tr>
-                                            <td>Total Revenue from Sales</td>
-                                            <td class="text-end fs-6" id="breakdownRevenue">₹0.00</td>
-                                        </tr>
-                                        <tr class="table-danger-light">
-                                            <td>(-) Total Investment (All Sheep in Period)</td>
-                                            <td class="text-end fs-6" id="breakdownInvestment">₹0.00</td>
-                                        </tr>
-                                        <tr class="table-danger-light">
-                                            <td>(-) Total Expenses (Care &amp; Feed)</td>
-                                            <td class="text-end fs-6" id="breakdownExpenses">₹0.00</td>
-                                        </tr>
-                                        <tr class="table-warning-light">
-                                            <td>(-) Current Feed Inventory Value</td>
-                                            <td class="text-end fs-6" id="breakdownFeedValue">₹0.00</td>
-                                        </tr>
-                                    </tbody>
-                                    <tfoot class="table-group-divider"><tr class="table-dark"><td class="fw-bold fs-5">Overall Net Position</td><td class="text-end fw-bold fs-5" id="breakdownGrandTotal">₹0.00</td></tr></tfoot>
-                                </table>
-                            </div>
-                        </div>
+             <!-- 4. Data Tables -->
+            <!-- Monthly Summary Table -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Monthly Profit / Loss Summary</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered mb-0" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Month</th>
+                                    <th class="text-end">Revenue</th>
+                                    <th class="text-end">COGS</th>
+                                    <th class="text-end">Gross Profit</th>
+                                    <th class="text-end">Feed & Other Costs</th>
+                                    <th class="text-end">Net Profit / Loss</th>
+                                </tr>
+                            </thead>
+                            <tbody id="monthlyFinancialsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Sales Breakdown Table -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Detailed Sales Breakdown (Period)</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped mb-0" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Sheep ID</th>
+                                    <th>Sale Date</th>
+                                    <th class="text-end">Sale Price</th>
+                                    <th class="text-end">Buying Price</th>
+                                    <th class="text-end">Treatment Costs</th>
+                                    <th class="text-end">Total Cost (COGS)</th>
+                                    <th class="text-end">Profit / Loss</th>
+                                </tr>
+                            </thead>
+                            <tbody id="financialsDetailTableBody"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -1128,7 +1365,7 @@
                         <input type="hidden" id="editRecordId">
                         <h5 class="mb-3 text-primary">Core Details</h5>
                         <div class="row">
-                            <div class="col-md-6 mb-3"><label for="editSheepId" class="form-label">Sheep ID</label><input type="text" class="form-control" id="editSheepId" required></div>
+                            <div class="col-md-6 mb-3"><label for="editSheepId" class="form-label">Sheep ID</label><input type="text" class="form-control" id="editSheepId" readonly required></div>
                             <div class="col-md-6 mb-3"><label for="editGender" class="form-label">Gender</label><select class="form-select" id="editGender" required><option value="Female">Female</option><option value="Male">Male</option></select></div>
                         </div>
                         <div class="row">
@@ -1197,48 +1434,137 @@
         </div>
 
         <!-- Sale Modal -->
-        <div class="modal fade" id="saleSheepModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content needs-navigation" id="saleSheepForm"><div class="modal-header"><h5 class="modal-title">Sale Sheep Record</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="saleRecordId"><div class="mb-3"><label for="saleDate" class="form-label">Date of Sale</label><input type="date" class="form-control" id="saleDate" required></div><div class="mb-3"><label for="salePrice" class="form-label">Sale Price</label><input type="number" step="0.01" class="form-control" id="salePrice" required></div><div class="mb-3"><label for="saleBuyer" class="form-label">Buyer Name</label><input type="text" class="form-control" id="saleBuyer"></div><div class="mb-3"><label for="saleNotes" class="form-label">Sale Notes</label><textarea class="form-control" id="saleNotes" rows="4"></textarea></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-success">Confirm Sale</button></div></form></div></div>
+        <div class="modal fade" id="saleSheepModal" tabindex="-1">
+            <div class="modal-dialog">
+                <form class="modal-content needs-navigation" id="saleSheepForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Sale Sheep Record</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body"><input type="hidden" id="saleRecordId">
+                        <div class="mb-3"><label for="saleDate" class="form-label">Date of Sale</label><input type="date" class="form-control" id="saleDate" required></div>
+                        <div class="mb-3"><label for="salePrice" class="form-label">Sale Price</label><input type="number" step="0.01" class="form-control" id="salePrice" required></div>
+                        <div class="mb-3"><label for="saleBuyer" class="form-label">Buyer Name</label><input type="text" class="form-control" id="saleBuyer"></div>
+                        <div class="mb-3"><label for="saleNotes" class="form-label">Sale Notes</label><textarea class="form-control" id="saleNotes" rows="4"></textarea></div>
+                    </div>
+                    <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-success">Confirm Sale</button></div>
+                </form>
+            </div>
+        </div>
         
         <!-- Manage Treatments Modal -->
-        <div class="modal fade" id="treatmentLogModal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Treatment Log for Sheep: <span id="modalSheepId"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><h6>Add/Edit Treatment Entry</h6>
-            <form id="addTreatmentForm" class="p-3 mb-4 bg-light rounded border needs-navigation">
-                <input type="hidden" id="currentSheepRecordId"><input type="hidden" id="treatmentEntryId">
-                <div class="row">
-                    <div class="col-md-6 mb-3"><label for="treatmentDate" class="form-label">Treatment Date</label><input type="date" class="form-control" id="treatmentDate" required></div>
-                    <div class="col-md-6 mb-3"><label for="treatmentType" class="form-label">Treatment Type</label><select id="treatmentType" class="form-select" required><option value="General">General</option><option value="Deworming">Deworming</option><option value="Vaccination">Vaccination</option><option value="Feed">Feed</option><option value="Other">Other</option></select></div>
-                </div>
-                <!-- Dynamic fields for Feed vs. Medication -->
-                <div id="feedSpecificFields" class="hidden">
-                    <div class="row">
-                        <div class="col-md-6 mb-3"><label for="treatmentFeedType" class="form-label">Feed Type</label><select id="treatmentFeedType" class="form-select"></select></div>
-                        <div class="col-md-6 mb-3"><label for="dosage" class="form-label">Quantity Used (KG)</label><input type="number" step="0.1" class="form-control" id="dosage" placeholder="e.g., 1.5"></div>
+        <div class="modal fade" id="treatmentLogModal" tabindex="-1">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Treatment Log for Sheep: <span id="modalSheepId"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <h6>Add/Edit Treatment Entry</h6>
+                        <form id="addTreatmentForm" class="p-3 mb-4 bg-light rounded border needs-navigation">
+                            <input type="hidden" id="currentSheepRecordId"><input type="hidden" id="treatmentEntryId">
+                            <div class="row">
+                                <div class="col-md-6 mb-3"><label for="treatmentDate" class="form-label">Treatment Date</label><input type="date" class="form-control" id="treatmentDate" required></div>
+                                <div class="col-md-6 mb-3"><label for="treatmentType" class="form-label">Treatment Type</label><select id="treatmentType" class="form-select" required><option value="General">General</option><option value="Deworming">Deworming</option><option value="Vaccination">Vaccination</option><option value="Feed">Feed</option><option value="Other">Other</option></select></div>
+                            </div>
+                            <!-- Dynamic fields for Feed vs. Medication -->
+                            <div id="feedSpecificFields" class="hidden">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3"><label for="treatmentFeedType" class="form-label">Feed Type</label><select id="treatmentFeedType" class="form-select"></select></div>
+                                    <div class="col-md-6 mb-3"><label for="dosage" class="form-label">Quantity Used (KG)</label><input type="number" step="0.1" class="form-control" id="dosage" placeholder="e.g., 1.5"></div>
+                                </div>
+                            </div>
+                            <div id="medicationField">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3"><label for="medication" class="form-label">Medication/Treatment</label><input type="text" class="form-control" id="medication" placeholder="e.g., Penicillin, Ivermectin"></div>
+                                    <div class="col-md-6 mb-3"><label for="dosageText" class="form-label">Dosage</label><input type="text" class="form-control" id="dosageText" placeholder="e.g., 5ml, 1 tablet"></div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="treatmentCost" class="form-label">Cost (₹)</label>
+                                    <input type="number" step="0.01" class="form-control" id="treatmentCost" placeholder="e.g., 150.50">
+                                </div>
+                                <div class="col-md-6 mb-3"><label for="treatmentWeight" class="form-label">Weight (kg) <span class="text-muted">(Optional)</span></label><input type="number" step="0.1" class="form-control" id="treatmentWeight" placeholder="Log weight with treatment" aria-describedby="weightHelp">
+                                    <div id="weightHelp" class="form-text">This will also create a separate entry in the Weight Tracking section.</div>
+                                </div>
+                            </div>
+                            <div class="mb-3"><label for="symptoms" class="form-label">Symptoms Observed</label><textarea class="form-control" id="symptoms" rows="2" placeholder="e.g., Limping, coughing, fever"></textarea></div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3"><label for="followUpDate" class="form-label">Follow-up Date (for specific re-checks)</label><input type="date" class="form-control" id="followUpDate"></div>
+                            </div>
+                            <div class="mb-3"><label for="treatmentNotes" class="form-label">Notes</label><textarea class="form-control" id="treatmentNotes" rows="2" aria-describedby="treatmentNotesHelp"></textarea>
+                                <div id="treatmentNotesHelp" class="form-text">For Deworming/Vaccination, these notes (e.g., brand name) will appear on the Health Schedule.</div>
+                            </div>
+                            <button type="submit" class="btn btn-success">Save Entry</button>
+                            <button type="button" class="btn btn-secondary ms-2" id="clearTreatmentFormBtn">Clear Form</button>
+                        </form>
+                        <h6 class="mt-4">Treatment History</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Symptoms</th>
+                                        <th>Medication</th>
+                                        <th>Dosage</th>
+                                        <th class="text-end">Cost (₹)</th>
+                                        <th>Notes</th>
+                                        <th class="text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="treatmentLogTbody"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
-                <div id="medicationField">
-                    <div class="row">
-                        <div class="col-md-6 mb-3"><label for="medication" class="form-label">Medication/Treatment</label><input type="text" class="form-control" id="medication" placeholder="e.g., Penicillin, Ivermectin"></div>
-                        <div class="col-md-6 mb-3"><label for="dosageText" class="form-label">Dosage</label><input type="text" class="form-control" id="dosageText" placeholder="e.g., 5ml, 1 tablet"></div>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label for="treatmentCost" class="form-label">Cost (₹)</label>
-                        <input type="number" step="0.01" class="form-control" id="treatmentCost" placeholder="e.g., 150.50">
-                    </div>
-                    <div class="col-md-6 mb-3"><label for="treatmentWeight" class="form-label">Weight (kg) <span class="text-muted">(Optional)</span></label><input type="number" step="0.1" class="form-control" id="treatmentWeight" placeholder="Log weight with treatment" aria-describedby="weightHelp"><div id="weightHelp" class="form-text">This will also create a separate entry in the Weight Tracking section.</div></div>
-                </div>
-                <div class="mb-3"><label for="symptoms" class="form-label">Symptoms Observed</label><textarea class="form-control" id="symptoms" rows="2" placeholder="e.g., Limping, coughing, fever"></textarea></div>
-                <div class="row"><div class="col-md-6 mb-3"><label for="followUpDate" class="form-label">Follow-up Date (for specific re-checks)</label><input type="date" class="form-control" id="followUpDate"></div></div>
-                <div class="mb-3"><label for="treatmentNotes" class="form-label">Notes</label><textarea class="form-control" id="treatmentNotes" rows="2" aria-describedby="treatmentNotesHelp"></textarea><div id="treatmentNotesHelp" class="form-text">For Deworming/Vaccination, these notes (e.g., brand name) will appear on the Health Schedule.</div></div>
-                <button type="submit" class="btn btn-success">Save Entry</button><button type="button" class="btn btn-secondary" onclick="resetTreatmentForm()">Clear Form</button>
-            </form>
-                <h6>Treatment History</h6><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Date</th><th>Symptoms</th><th>Medication</th><th>Dosage</th><th>Notes</th><th>Actions</th></tr></thead><tbody id="treatmentLogTbody"></tbody></table></div></div></div></div></div>
+            </div>
+        </div>
 
         <!-- Weight Entry Modal -->
-        <div class="modal fade" id="weightEntryModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content needs-navigation" id="weightEntryForm"><div class="modal-header"><h5 class="modal-title" id="weightModalTitle">Add Weight Entry</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="weightRecordId"><input type="hidden" id="weightEntryId"><input type="hidden" id="weightEntrySource"><div class="mb-3"><label for="weightEntryDate" class="form-label">Date</label><input type="date" class="form-control" id="weightEntryDate" required></div><div class="mb-3"><label for="weightEntryValue" class="form-label">Weight (kg)</label><input type="number" step="0.1" class="form-control" id="weightEntryValue" required></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Save Weight</button></div></form></div></div>
+        <div class="modal fade" id="weightEntryModal" tabindex="-1">
+            <div class="modal-dialog">
+                <form class="modal-content needs-navigation" id="weightEntryForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="weightModalTitle">Add Weight Entry</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body"><input type="hidden" id="weightRecordId"><input type="hidden" id="weightEntryId"><input type="hidden" id="weightEntrySource">
+                        <div class="mb-3"><label for="weightEntryDate" class="form-label">Date</label><input type="date" class="form-control" id="weightEntryDate" required></div>
+                        <div class="mb-3"><label for="weightEntryValue" class="form-label">Weight (kg)</label><input type="number" step="0.1" class="form-control" id="weightEntryValue" required></div>
+                    </div>
+                    <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Save Weight</button></div>
+                </form>
+            </div>
+        </div>
 
         <!-- Batch Treatment Modal -->
-        <div class="modal fade" id="batchTreatmentModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content needs-navigation" id="batchTreatmentForm"><div class="modal-header"><h5 class="modal-title">Log Batch Treatment</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><p>Applying treatment to <strong id="batchCount">0</strong> selected sheep.</p><div class="mb-3"><label for="batchTreatmentType" class="form-label">Treatment Type</label><select id="batchTreatmentType" class="form-select" required><option value="" disabled selected>Select a type...</option><option value="Deworming">Deworming</option><option value="Vaccination">Vaccination</option></select></div><div class="mb-3"><label for="batchTreatmentDate" class="form-label">Treatment Date</label><input type="date" class="form-control" id="batchTreatmentDate" required></div><div class="mb-3"><label for="batchMedication" class="form-label">Medication/Brand</label><input type="text" class="form-control" id="batchMedication" placeholder="e.g., Ivermectin, Cydectin"></div><div class="mb-3"><label for="batchDosage" class="form-label">Dosage</label><input type="text" class="form-control" id="batchDosage" placeholder="e.g., 5ml"></div><div class="mb-3"><label for="batchTreatmentNotes" class="form-label">Notes</label><textarea class="form-control" id="batchTreatmentNotes" rows="2"></textarea></div></div><div class="modal-footer"><button type="button" class="btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-success">Apply to All</button></div></form></div></div>
+        <div class="modal fade" id="batchTreatmentModal" tabindex="-1">
+            <div class="modal-dialog">
+                <form class="modal-content needs-navigation" id="batchTreatmentForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Log Batch Treatment</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Applying treatment to <strong id="batchCount">0</strong> selected sheep.</p>
+                        <div class="mb-3"><label for="batchTreatmentType" class="form-label">Treatment Type</label><select id="batchTreatmentType" class="form-select" required><option value="" disabled selected>Select a type...</option><option value="Deworming">Deworming</option><option value="Vaccination">Vaccination</option></select></div>
+                        <div class="mb-3 hidden" id="batchManualDueDateContainer">
+                            <label for="batchManualVaccinationDueDate" class="form-label">Manual Next Due Date (Optional)</label>
+                            <input type="date" class="form-control" id="batchManualVaccinationDueDate" aria-describedby="batchManualDueDateHelp">
+                            <div id="batchManualDueDateHelp" class="form-text">
+                                Overrides the automatic 1-year cycle for vaccinations. Leave blank to use the default.
+                            </div>
+                        </div>
+                        <div class="mb-3"><label for="batchTreatmentDate" class="form-label">Treatment Date</label><input type="date" class="form-control" id="batchTreatmentDate" required></div>
+                        <div class="mb-3"><label for="batchMedication" class="form-label">Medication/Brand</label><input type="text" class="form-control" id="batchMedication" placeholder="e.g., Ivermectin, Cydectin"></div>
+                        <div class="mb-3"><label for="batchDosage" class="form-label">Dosage</label><input type="text" class="form-control" id="batchDosage" placeholder="e.g., 5ml"></div>
+                        <div class="mb-3"><label for="batchTreatmentNotes" class="form-label">Notes</label><textarea class="form-control" id="batchTreatmentNotes" rows="2"></textarea></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">Apply to All</button>
+                    </div>
+                </form>
+            </div>
+        </div>
 
         <!-- Edit Sold Record Modal -->
         <div class="modal fade" id="editSoldSheepModal" tabindex="-1">
@@ -1295,6 +1621,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Mobile Sidebar Overlay -->
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
     <!-- Third-party Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
