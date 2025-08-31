@@ -42,21 +42,26 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {object} decodedResult - The full result object from the scanner.
      */
     const onScanSuccess = (decodedText, decodedResult) => {
+        // Pause the scanner to prevent multiple rapid scans while we process.
+        html5QrCode.pause();
+
         console.log(`QR Code detected: ${decodedText}`);
-        qrReaderResults.innerHTML = `<div class="alert alert-success">Scanned: <strong>${decodedText}</strong>. Loading profile...</div>`;
-        
-        // Stop scanning to release the camera
-        html5QrCode.stop().then(() => {
-            // Hide the modal after a short delay to show the success message
-            setTimeout(() => {
-                qrScannerModal.hide();
-            }, 500);
-            
-            // Check if the scanned sheep ID exists in the dropdown
-            const optionExists = [...profileSheepSelector.options].some(option => option.value === decodedText);
-            
-            if (optionExists) {
-                 // Find the navigation link for the 'profile' section
+
+        // Find the option in the dropdown that matches the scanned ID (user-facing ID)
+        const matchingOption = [...profileSheepSelector.options].find(option => option.textContent === decodedText);
+
+        if (matchingOption) {
+            // --- SUCCESS PATH ---
+            qrReaderResults.innerHTML = `<div class="alert alert-success">Found: <strong>${decodedText}</strong>. Loading profile...</div>`;
+
+            // Stop scanning permanently to release the camera
+            html5QrCode.stop().then(() => {
+                // Hide the modal after a short delay to show the success message
+                setTimeout(() => {
+                    qrScannerModal.hide();
+                }, 500);
+
+                // Find the navigation link for the 'profile' section
                 const profileLink = mainNav.querySelector('a[data-section="profile"]');
                 
                 // Switch to the profile tab if not already active.
@@ -65,22 +70,63 @@ document.addEventListener('DOMContentLoaded', () => {
                     profileLink.click();
                 }
                 
-                // Set the dropdown value to the scanned sheep ID
-                profileSheepSelector.value = decodedText;
+                // Set the dropdown value to the Firebase ID from the matching option
+                profileSheepSelector.value = matchingOption.value;
                 
                 // Dispatch a 'change' event to trigger the profile load logic in app.js
                 profileSheepSelector.dispatchEvent(new Event('change', { bubbles: true }));
-                
+
                 console.log(`Successfully triggered profile view for ${decodedText}.`);
-            } else {
-                // If the sheep ID is not found, show an alert.
-                // This could happen if the sheep is sold, deceased, or the QR code is wrong.
-                alert(`Sheep with ID "${decodedText}" not found in the active list. Please check the Sold or Archived records.`);
-            }
-        }).catch(err => {
-            console.error('Failed to stop QR scanner after success.', err);
-            qrScannerModal.hide(); // Still try to hide the modal
-        });
+
+            }).catch(err => {
+                console.error('Failed to stop QR scanner after success.', err);
+                qrScannerModal.hide(); // Still try to hide the modal
+            });
+        } else {
+            // --- NOT FOUND PATH ---
+            // The ID is not in the active list. Stop the scanner and offer to search other sections.
+            html5QrCode.stop().catch(err => console.warn("Scanner stopped to show search options.", err));
+
+            qrReaderResults.innerHTML = `
+                <div class="alert alert-warning" role="alert">
+                    <h5 class="alert-heading">ID Not Found in Active Flock</h5>
+                    <p>The scanned ID <strong>"${decodedText}"</strong> is not active. It may have been sold or marked as deceased.</p>
+                    <hr>
+                    <p class="mb-0">Where would you like to search?</p>
+                </div>
+                <div class="d-grid gap-2 mt-2">
+                    <button class="btn btn-outline-success" id="searchSoldBtn">
+                        <i class="fas fa-dollar-sign me-2"></i>Search in Sold Records
+                    </button>
+                    <button class="btn btn-outline-secondary" id="searchArchivedBtn">
+                        <i class="fas fa-archive me-2"></i>Search in Deceased Records
+                    </button>
+                </div>
+            `;
+
+            // Helper function to navigate to a section and pre-fill the search bar
+            const navigateToSection = (sectionId) => {
+                qrScannerModal.hide();
+                const link = mainNav.querySelector(`a[data-section="${sectionId}"]`);
+                if (link) {
+                    link.click();
+                    // Auto-fill the search bar on the target page for a seamless experience
+                    setTimeout(() => {
+                        // Find the search input within the newly visible section
+                        const searchInput = document.querySelector(`#${sectionId}Section input[data-table-body-id]`);
+                        if (searchInput) {
+                            searchInput.value = decodedText;
+                            // Dispatch an 'input' event to trigger the filtering logic in app.js
+                            searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                    }, 250); // Delay to allow the section to become visible
+                }
+            };
+
+            // Add event listeners to the new buttons
+            document.getElementById('searchSoldBtn').addEventListener('click', () => navigateToSection('saled'));
+            document.getElementById('searchArchivedBtn').addEventListener('click', () => navigateToSection('archived'));
+        }
     };
     
     /**
