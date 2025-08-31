@@ -232,6 +232,23 @@
             opacity: 1;
             visibility: visible;
         }
+
+        /* Print-specific styles for bulk QR codes */
+        @media print {
+            body { -webkit-print-color-adjust: exact; }
+            .modal-backdrop, .d-print-none, .dashboard-sidebar, .header-section, .main-container > .d-flex {
+                display: none !important;
+            }
+            .modal {
+                position: relative !important;
+                overflow: visible !important;
+            }
+            .modal-dialog { max-width: 100% !important; margin: 0 !important; }
+            .modal-content { border: none !important; box-shadow: none !important; }
+            #bulkQrContainer .qr-item {
+                page-break-inside: avoid; /* Prevents items from splitting across pages */
+            }
+        }
     </style>
 </head>
 <body>
@@ -505,7 +522,10 @@
             <div class="card shadow-sm">
                 <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
                     <h5 class="m-0 font-weight-bold text-primary"><i class="fas fa-heartbeat fa-fw me-2"></i>Healthy & Recovering Records</h5>
-                    <button class="btn btn-outline-success btn-sm js-export-healthy"><i class="fas fa-download me-1"></i> Export CSV</button>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-info btn-sm" id="bulkGenerateQrBtn" title="Generate QR codes for all active sheep"><i class="fas fa-qrcode me-1"></i> Bulk Generate QR</button>
+                        <button class="btn btn-outline-success btn-sm js-export-healthy"><i class="fas fa-download me-1"></i> Export CSV</button>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="d-flex justify-content-end mb-3">
@@ -843,6 +863,10 @@
                         <span class="input-group-text"><i class="fas fa-search"></i></span>
                         <input type="text" class="form-control" id="profileSearchInput" placeholder="Filter sheep list...">
                     </div>
+                    <button class="btn btn-outline-primary ms-2" id="scanQrBtn" title="Scan Ear Tag QR Code">
+                        <i class="fas fa-qrcode"></i>
+                        <span class="d-none d-sm-inline ms-1">Scan</span>
+                    </button>
                 </div>
                 <div class="btn-group">
                     <button class="btn btn-outline-secondary" id="prevSheepBtn" title="Previous Sheep"><i class="fas fa-chevron-left"></i></button>
@@ -869,6 +893,9 @@
                                 </div>
                             </div>
                             <div class="mt-2 mt-md-0">
+                                <button class="btn btn-outline-secondary me-2" id="showQrCodeBtn" title="Show Ear Tag QR Code">
+                                    <i class="fas fa-qrcode me-1"></i> Generate QR
+                                </button>
                                 <button class="btn btn-primary" id="profileEditBtn"><i class="fas fa-edit me-1"></i> Edit Profile</button>
                             </div>
                         </div>
@@ -1566,6 +1593,25 @@
             </div>
         </div>
 
+        <!-- QR Code Scanner Modal -->
+        <div class="modal fade" id="qrScannerModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Scan Ear Tag QR Code</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="qr-reader" style="width: 100%;"></div>
+                        <div id="qr-reader-results" class="mt-3 text-center"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Edit Sold Record Modal -->
         <div class="modal fade" id="editSoldSheepModal" tabindex="-1">
             <div class="modal-dialog">
@@ -1622,21 +1668,65 @@
         </div>
     </div>
 
+    <!-- Bulk QR Code Display Modal -->
+    <div class="modal fade" id="bulkQrModal" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header d-print-none">
+                    <h5 class="modal-title">Bulk QR Codes for Active Flock</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="bulkQrPrintArea">
+                        <p class="text-muted d-print-none">Generating QR codes for all active sheep. This may take a moment...</p>
+                        <div id="bulkQrContainer" class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-6 g-4">
+                            <!-- QR Codes will be injected here by qrcode.js -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer d-print-none">
+                    <button type="button" class="btn btn-primary" id="printBulkQrBtn"><i class="fas fa-print me-2"></i>Print All</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+ 
     <!-- Mobile Sidebar Overlay -->
     <div id="sidebar-overlay" class="sidebar-overlay"></div>
-
+ 
+    <!-- QR Code Display Modal -->
+    <div class="modal fade" id="qrDisplayModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="qrDisplayTitle">QR Code for Sheep ID: <span id="qrDisplaySheepId" class="fw-bold"></span><span id="qrDisplayStatus" class="ms-2"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <p>Scan this code to quickly access the sheep's profile.</p>
+                    <canvas id="qrCanvas"></canvas>
+                    <p class="mt-3 small text-muted">For printing, you can right-click the QR code and save the image, or use the print button.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="printQrBtn"><i class="fas fa-print me-2"></i>Print</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+ 
     <!-- Third-party Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Main Application Logic -->
-    <script type="module" src="app.js"></script>
+    <script type="module" src="./app.js"></script>
+    <!-- Role-Based Dashboard Manager -->
+    <!-- <script type="module" src="./dashboardManager.js"></script> -->
+    <!-- QR Code Scanner Module -->
+    <script src="./qrcode.js"></script>
 </body>
 
 </html>
-
-
-
-
-
-
-
