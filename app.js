@@ -490,12 +490,12 @@ function renderAllRecordTables() {
     // 4. Render HTML from sorted arrays
     const healthyHtml = healthyRecords.map(renderHealthyRow).join('');
     const overdueHtml = overdueRecords.map(renderTreatmentRow).join('');
-    const corentinHtml = corentinRecords.map(renderTreatmentRow).join('');
+    const corentinHtml = corentinRecords.map(r => renderStatusRow(r, { isOverdue: false, hideSaleButton: false })).join('');
     const treatmentHtml = underTreatmentRecords.map(renderTreatmentRow).join('');
-    const pregnantHtml = pregnantRecords.map(renderPregnantRow).join('');
+    const pregnantHtml = pregnantRecords.map(r => renderStatusRow(r, { isOverdue: false, hideSaleButton: true })).join('');
 
     // 5. Update the DOM
-    updateElement('healthyRecordsTableBody', healthyHtml || `<tr><td colspan="10" class="text-center">No healthy records match the filter.</td></tr>`, true);
+    updateElement('healthyRecordsTableBody', healthyHtml || `<tr><td colspan="4" class="text-center text-muted p-4">No healthy records match the filter.</td></tr>`, true);
     updateElement('overdueRecordsTableBody', overdueHtml || `<tr><td colspan="6" class="text-center">No overdue records. Great job!</td></tr>`, true);
     updateElement('corentinRecordsTableBody', corentinHtml || `<tr><td colspan="6" class="text-center">No 'Corentin' records match the filter.</td></tr>`, true);
     updateElement('treatmentRecordsTableBody', treatmentHtml || `<tr><td colspan="6" class="text-center">No 'Under Treatment' records match the filter.</td></tr>`, true);
@@ -519,19 +519,24 @@ function fetchAllRecords() {
         checkTreatmentFollowUps();
         checkPreventativeCareReminders();
     }, (error) => {
-        console.error("Fatal Error: Could not fetch main sheep records.", error);
-        const errorHtml = (cols) => `<tr><td colspan="${cols}" class="text-center text-danger">Error loading records. Please check your connection and refresh the page.</td></tr>`;
+        console.error("Fatal Error: Could not fetch main sheep records.", error); // NOSONAR
+        const errorMsg = "Error loading records. Please check your connection and refresh.";
+        const errorHtmlTable = (cols) => `<tr><td colspan="${cols}" class="text-center text-danger p-4">${errorMsg}</td></tr>`;
+        const errorHtmlDiv = `<div class="list-group-item text-center text-danger p-4">${errorMsg}</div>`;
 
-        // Display error message in all dependent tables
-        document.getElementById('healthyRecordsTableBody').innerHTML = errorHtml(7);
-        document.getElementById('overdueRecordsTableBody').innerHTML = errorHtml(6);
-        document.getElementById('corentinRecordsTableBody').innerHTML = errorHtml(6);
-        document.getElementById('treatmentRecordsTableBody').innerHTML = errorHtml(6);
-        document.getElementById('scheduleTableBody').innerHTML = errorHtml(9);
-        document.getElementById('weeklyTableBody').innerHTML = errorHtml(5);
+        // Use updateElement to safely update UI and handle missing elements
+        updateElement('healthyRecordsTableBody', errorHtmlDiv, true);
+        updateElement('overdueRecordsTableBody', errorHtmlTable(6), true);
+        updateElement('corentinRecordsTableBody', errorHtmlTable(6), true);
+        updateElement('treatmentRecordsTableBody', errorHtmlTable(6), true);
+        updateElement('pregnantRecordsTableBody', errorHtmlTable(6), true);
+        updateElement('scheduleTableBody', errorHtmlTable(5), true);
+        updateElement('weeklyTableBody', errorHtmlTable(5), true);
 
-        // Reset analytics to a zero/error state
-        ['totalCount', 'healthyCount', 'sickCount', 'treatmentCount'].forEach(id => document.getElementById(id).textContent = '0');
+        // Reset dashboard counts
+        ['totalCount', 'healthyCount', 'sickCount', 'treatmentCount', 'pregnantCount', 'maleCount', 'femaleCount'].forEach(id => updateElement(id, '0'));
+        updateElement('flockValue', '₹0.00');
+        if (healthStatusPieChartInstance) healthStatusPieChartInstance.destroy();
     });
 }
 
@@ -582,7 +587,8 @@ function fetchSoldRecords() {
         scheduleRender();
     }, error => {
         console.error("Error fetching sold records:", error);
-        document.getElementById('sheepSaledTableBody').innerHTML = `<tr><td colspan="5" class="text-center text-danger p-4">Error loading sold records. Check browser console for details.</td></tr>`;
+        const errorHtml = `<tr><td colspan="5" class="text-center text-danger p-4">Error loading sold records.</td></tr>`;
+        updateElement('sheepSaledTableBody', errorHtml, true);
     });
 }
 
@@ -607,7 +613,8 @@ function fetchArchivedRecords() {
         scheduleRender();
     }, error => {
         console.error("Error fetching archived records:", error);
-        document.getElementById('archivedRecordsTableBody').innerHTML = `<tr><td colspan="6" class="text-center text-danger">Error loading archived records. Check browser console for details.</td></tr>`;
+        const errorHtml = `<tr><td colspan="6" class="text-center text-danger p-4">Error loading archived records.</td></tr>`;
+        updateElement('archivedRecordsTableBody', errorHtml, true);
     });
 }
 
@@ -623,49 +630,9 @@ function fetchFeedInventory() {
         scheduleRender(); // Re-render all views that depend on feed data, including financials.
     }, error => {
         console.error("Error fetching feed inventory:", error);
-        updateElement('feedInventoryTableBody', `<tr><td colspan="4" class="text-center text-danger">Error loading feed inventory.</td></tr>`, true);
+        const errorHtml = `<tr><td colspan="7" class="text-center text-danger p-4">Error loading expenditure log.</td></tr>`;
+        updateElement('feedInventoryTableBody', errorHtml, true);
     });
-}
-
-function updateExpenditureSummaryCard() {
-    const summaryValueEl = document.getElementById('expenditureSummaryValue');
-    const summaryTitleEl = document.getElementById('expenditureSummaryTitle');
-    const monthFilter = document.getElementById('feedMonthFilter');
-    const yearFilter = document.getElementById('feedYearFilter');
-    if (!summaryValueEl || !summaryTitleEl || !monthFilter || !yearFilter) return;
-
-    const today = new Date();
-    let summaryTotal = 0;
-    let title = "Expenditure";
-
-    const selectedMonth = monthFilter.value;
-    const selectedYear = yearFilter.value;
-
-    let month, year;
-    if (selectedMonth === 'all' && selectedYear === 'all') {
-        month = today.getMonth() + 1;
-        year = today.getFullYear();
-        title = `Expenditure (This Month)`;
-    } else {
-        month = selectedMonth === 'all' ? null : selectedMonth;
-        year = selectedYear === 'all' ? null : selectedYear;
-        const monthName = selectedMonth !== 'all' ? monthFilter.options[monthFilter.selectedIndex].text : '';
-        const yearName = selectedYear !== 'all' ? selectedYear : 'All Years';
-        title = `Expenditure (${monthName} ${yearName})`.trim().replace('  ', ' ');
-    }
-
-    const summaryPeriod = masterFeedInventory.filter(item => {
-        if (!item.purchaseDate) return false; // Always exclude items without a date
-        const itemDate = new Date(item.purchaseDate + 'T00:00:00'); // Add time to avoid timezone issues
-        const monthMatch = month === null || (itemDate.getMonth() + 1) == month;
-        const yearMatch = year === null || itemDate.getFullYear() == year;
-        return yearMatch && monthMatch;
-    });
-
-    summaryTotal = summaryPeriod.reduce((acc, item) => acc + (item.pricePerKg || 0) * (item.quantity || 1), 0);
-
-    summaryValueEl.textContent = formatCurrency(summaryTotal);
-    summaryTitleEl.textContent = title;
 }
 
 function populateExpenditureFilters() {
@@ -754,7 +721,6 @@ function renderExpenditureLog() {
 
     totalValueEl.textContent = formatCurrency(totalValue);
     clearFiltersBtn.style.display = (selectedMonth !== 'all' || selectedYear !== 'all') ? 'inline-block' : 'none';
-    updateExpenditureSummaryCard();
 }
 
 // --- ROW RENDERING FUNCTIONS ---
@@ -849,40 +815,30 @@ function renderSoldRow(record) {
 
 
 function renderMonthlySalesSummary(monthlyTotals, sortBy = monthlySummarySort) {
-    // monthlySummarySort = sortBy; // This is now handled by the caller to avoid side-effects
-
     const container = document.getElementById('monthlySalesSummary');
     if (!container) {
         return; // Not an error if the element is not on the current page.
     }
 
-    // Update the active state on the sort buttons
     const sortButtons = document.querySelectorAll('#monthlySalesSort button');
     if (sortButtons.length > 0) {
-        sortButtons.forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.sort === sortBy);
-        });
+        sortButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.sort === sortBy));
     }
 
     if (Object.keys(monthlyTotals).length === 0) {
-        container.innerHTML = '<p class="text-muted text-center p-3 mb-0">No sales data available.</p>';
+        container.innerHTML = '<div class="card-body text-center"><p class="text-muted mb-0">No sales data available for this period.</p></div>';
         return;
     }
 
     let sortedMonths;
     const monthEntries = Object.entries(monthlyTotals);
 
-    switch (sortBy) {
-        case 'profit':
-            sortedMonths = monthEntries.sort(([, a], [, b]) => b.profit - a.profit).map(([key]) => key);
-            break;
-        case 'sales':
-            sortedMonths = monthEntries.sort(([, a], [, b]) => b.sales - a.sales).map(([key]) => key);
-            break;
-        case 'newest':
-        default:
-            sortedMonths = Object.keys(monthlyTotals).sort().reverse();
-            break;
+    if (sortBy === 'profit') {
+        sortedMonths = monthEntries.sort(([, a], [, b]) => b.profit - a.profit).map(([key]) => key);
+    } else if (sortBy === 'sales') {
+        sortedMonths = monthEntries.sort(([, a], [, b]) => b.sales - a.sales).map(([key]) => key);
+    } else { // 'newest'
+        sortedMonths = Object.keys(monthlyTotals).sort().reverse();
     }
 
     let listHtml = '<ul class="list-group list-group-flush">';
@@ -894,16 +850,24 @@ function renderMonthlySalesSummary(monthlyTotals, sortBy = monthlySummarySort) {
 
         const profitClass = profit >= 0 ? 'text-success' : 'text-danger';
         const profitSign = profit >= 0 ? '+' : '';
+        const profitMargin = sales > 0 ? (profit / sales) * 100 : 0;
+        const progressBarClass = profit >= 0 ? 'bg-success' : 'bg-danger';
 
         listHtml += `
-            <li class="list-group-item">
+            <li class="list-group-item px-3 py-3">
                 <div class="d-flex justify-content-between align-items-center">
-                    <span>${monthName} ${year}</span>
-                    <strong class="text-dark-emphasis">₹${sales.toFixed(2)}</strong>
+                    <h6 class="mb-1">${monthName} ${year}</h6>
+                    <strong class="text-dark-emphasis">${formatCurrency(sales)}</strong>
                 </div>
-                <div class="d-flex justify-content-between align-items-center small mt-1">
-                    <span class="text-muted">Profit/Loss</span>
-                    <strong class="${profitClass}">${profitSign}₹${profit.toFixed(2)}</strong>
+                <div class="d-flex w-100 justify-content-between align-items-center mt-2">
+                    <div class="small ${profitClass}">
+                        <i class="fas ${profit >= 0 ? 'fa-arrow-up' : 'fa-arrow-down'} me-1"></i>
+                        <strong>${profitSign}${formatCurrency(profit)}</strong>
+                        <span class="ms-2 text-muted">(${profitMargin.toFixed(1)}%)</span>
+                    </div>
+                </div>
+                <div class="progress mt-2" style="height: 5px;">
+                    <div class="progress-bar ${progressBarClass}" role="progressbar" style="width: ${Math.abs(profitMargin)}%;" aria-valuenow="${profitMargin}" aria-valuemin="0" aria-valuemax="100"></div>
                 </div>
             </li>
         `;
@@ -1122,108 +1086,162 @@ function updateSoldRecordsView(filter = currentSoldFilter) {
 }
 
 function renderArchivedRow(record) {
-    return `<tr>
-        <td><strong>${record.sheepId}</strong></td>
-        <td><span class="${getStatusClass(record.healthStatus)}">${record.healthStatus}</span></td>
-        <td>${formatDate(record.archiveDate)}</td>
-        <td>${formatDate(record.dateRecorded)}</td>
-        <td>${record.notes || ''}</td>
-        <td><button class="btn btn-sm btn-outline-danger js-delete-archived-record" data-record-id="${record.id}" data-sheep-id="${record.sheepId}" title="Permanently Delete"><i class="fas fa-trash"></i></button></td>
-    </tr>`;
+    const actionButtons = `
+        <div class="d-flex align-items-center justify-content-end">
+             <button class="btn btn-sm btn-outline-info js-manage-treatment" data-record-id="${record.id}" data-sheep-id="${record.sheepId}"><i class="fas fa-eye"></i> View History</button>
+            <div class="dropdown ms-2">
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="More actions">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item text-danger js-delete-archived-record" href="#" data-record-id="${record.id}" data-sheep-id="${record.sheepId}"><i class="fas fa-trash fa-fw me-2"></i>Permanently Delete</a></li>
+                </ul>
+            </div>
+        </div>
+    `;
+
+    return `
+        <tr>
+            <td class="align-middle">
+                <a href="#" class="fw-bold profile-link" data-sheep-id="${record.id}">${record.sheepId}</a>
+                <div class="small text-muted">${record.gender || 'N/A'}, ${record.breed || 'N/A'}</div>
+            </td>
+            <td class="align-middle">Archived on: <strong>${formatDate(record.archiveDate)}</strong></td>
+            <td class="align-middle"><span class="badge fs-6 ${getBootstrapStatusClass(record.healthStatus)}">${record.healthStatus}</span></td>
+            <td class="align-middle text-end">${actionButtons}</td>
+        </tr>
+    `;
 }
 
 function renderHealthyRow(record) {
-    return `<tr class="text-center">
-        <td class="align-middle"><strong>${record.sheepId}</strong></td>
-        <td class="align-middle">${record.gender || 'N/A'}</td>
-        <td class="align-middle">${record.breed || 'N/A'}</td>
-        <td class="align-middle"><span class="${getStatusClass(record.healthStatus)}">${record.healthStatus}</span></td>
-        <td class="align-middle text-nowrap">${formatDate(record.dateRecorded)}</td>
-        <td class="align-middle">${record.weight || 'N/A'}</td>
-        <td class="align-middle">${record.temperature || 'N/A'}</td>
-        <td class="align-middle">${record.buyingPrice ? `₹${parseFloat(record.buyingPrice).toFixed(2)}` : 'N/A'}</td>
-        <td class="align-middle"><strong>${record.notes || ''}</strong></td>
-        <td class="align-middle">
+    const notesHtml = record.notes
+        ? `<div class="mt-1 small text-muted fst-italic text-truncate" title="${escapeHTML(record.notes)}">
+             <i class="fas fa-comment-dots me-1 text-info opacity-75"></i> ${escapeHTML(record.notes)}
+           </div>`
+        : '';
+
+    const vitalsHtml = `
+        <div class="d-flex justify-content-around text-center small">
+            <div class="px-2">
+                <div class="text-muted text-uppercase" style="font-size: .65rem;">Weight</div>
+                <div class="fw-bold fs-6 text-primary">${record.weight || 'N/A'} kg</div>
+            </div>
+            <div class="px-2 border-start">
+                <div class="text-muted text-uppercase" style="font-size: .65rem;">Temp</div>
+                <div class="fw-bold fs-6 text-danger">${record.temperature || 'N/A'} °C</div>
+            </div>
+            <div class="px-2 border-start">
+                <div class="text-muted text-uppercase" style="font-size: .65rem;">Buy Price</div>
+                <div class="fw-bold fs-6 text-success">${record.buyingPrice ? formatCurrency(record.buyingPrice) : 'N/A'}</div>
+            </div>
+        </div>
+    `;
+
+    const actionButtons = `
+        <div class="d-flex align-items-center justify-content-end">
             <button class="btn btn-sm btn-info js-manage-treatment" data-record-id="${record.id}" data-sheep-id="${record.sheepId}"><i class="fas fa-notes-medical"></i> Manage</button>
-            <button class="btn btn-sm btn-outline-primary js-edit-record" data-record-id="${record.id}"><i class="fas fa-edit"></i></button>
-            <button class="btn btn-sm btn-outline-success js-sale-record" data-record-id="${record.id}"><i class="fas fa-dollar-sign"></i> Sale</button>
-            <button class="btn btn-sm btn-outline-danger js-delete-record" data-record-id="${record.id}" data-sheep-id="${record.sheepId}" title="Permanently Delete"><i class="fas fa-trash"></i></button>
-            <button class="btn btn-sm btn-outline-secondary js-archive-record" data-record-id="${record.id}" title="Mark as Deceased/Archive"><i class="fas fa-archive"></i></button>
-        </td>
-    </tr>`;
+            <div class="dropdown ms-2">
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="More actions"><i class="fas fa-ellipsis-v"></i></button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item js-edit-record" href="#" data-record-id="${record.id}"><i class="fas fa-edit fa-fw me-2 text-primary"></i>Edit Profile</a></li>
+                    <li><a class="dropdown-item js-sale-record" href="#" data-record-id="${record.id}"><i class="fas fa-dollar-sign fa-fw me-2 text-success"></i>Mark as Sold</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item js-archive-record" href="#" data-record-id="${record.id}"><i class="fas fa-archive fa-fw me-2 text-secondary"></i>Mark as Deceased</a></li>
+                    <li><a class="dropdown-item text-danger js-delete-record" href="#" data-record-id="${record.id}" data-sheep-id="${record.sheepId}"><i class="fas fa-trash fa-fw me-2"></i>Permanently Delete</a></li>
+                </ul>
+            </div>
+        </div>
+    `;
+
+    return `
+        <tr>
+            <td>
+                <a href="#" class="fw-bold fs-5 text-decoration-none profile-link" data-sheep-id="${record.id}">${record.sheepId}</a>
+                <div class="small text-muted">${record.gender || 'N/A'}, ${record.breed || 'N/A'} &bull; ${calculateAge(record.dateRecorded)}</div>
+                ${notesHtml}
+            </td>
+            <td><span class="badge fs-6 ${getBootstrapStatusClass(record.healthStatus)}">${record.healthStatus}</span></td>
+            <td>${vitalsHtml}</td>
+            <td class="text-end">${actionButtons}</td>
+        </tr>
+    `;
 }
 
-function renderTreatmentRow(record) {
-    let lastUpdate = 'N/A';
-    let followUpDateHtml = 'N/A';
-    let rowClass = ''; // For highlighting the entire row
-    let isOverdue = false;
-
-    if (record.treatments) {
-        const treatments = Object.values(record.treatments).sort((a, b) => new Date(b.treatmentDate) - new Date(a.treatmentDate));
-        if (treatments.length > 0) {
-            const latestTreatment = treatments[0];
-            lastUpdate = formatDate(latestTreatment.treatmentDate);
-
-            if (latestTreatment.followUpDate) {
-                const display = getFollowUpDateDisplay(latestTreatment.followUpDate);
-                followUpDateHtml = display.html;
-                rowClass = display.rowClass;
-                isOverdue = (rowClass === 'table-danger-light');
-            }
-        }
-    }
-
-    const actionButtons = isOverdue
-        ? `<button class="btn btn-sm btn-warning js-manage-treatment" data-record-id="${record.id}" data-sheep-id="${record.sheepId}"><i class="fas fa-notes-medical"></i> Log Follow-up</button>
-           <button class="btn btn-sm btn-outline-primary js-edit-record" data-record-id="${record.id}"><i class="fas fa-edit"></i></button>
-           <button class="btn btn-sm btn-outline-danger js-delete-record" data-record-id="${record.id}" data-sheep-id="${record.sheepId}" title="Permanently Delete"><i class="fas fa-trash"></i></button>`
-        : `<button class="btn btn-sm btn-info js-manage-treatment" data-record-id="${record.id}" data-sheep-id="${record.sheepId}"><i class="fas fa-notes-medical"></i> Manage</button>
-           <button class="btn btn-sm btn-outline-primary js-edit-record" data-record-id="${record.id}"><i class="fas fa-edit"></i></button>
-           <button class="btn btn-sm btn-outline-success js-sale-record" data-record-id="${record.id}"><i class="fas fa-dollar-sign"></i> Sale</button>
-           <button class="btn btn-sm btn-outline-danger js-delete-record" data-record-id="${record.id}" data-sheep-id="${record.sheepId}" title="Permanently Delete"><i class="fas fa-trash"></i></button>
-           <button class="btn btn-sm btn-outline-secondary js-archive-record" data-record-id="${record.id}" title="Mark as Deceased/Archive"><i class="fas fa-archive"></i></button>`;
-
-    return `<tr class="${rowClass}">
-        <td><strong>${record.sheepId}</strong></td>
-        <td><span class="${getStatusClass(record.healthStatus)}">${record.healthStatus}</span></td>
-        <td>${formatDate(record.dateRecorded)}</td>
-        <td>${lastUpdate}</td>
-        <td class="text-nowrap">${followUpDateHtml}</td>
-        <td>${actionButtons}</td>
-    </tr>`;
-}
-
-function renderPregnantRow(record) {
-    let lastUpdate = 'N/A';
-    let followUpDateHtml = 'N/A';
+/**
+ * A generic template function to render a table row for status-based lists
+ * (Corentin, Under Treatment, Pregnant, Overdue).
+ * @param {object} record - The sheep record object.
+ * @param {object} options - Configuration options.
+ * @param {boolean} options.isOverdue - If true, renders "Log Follow-up" button style.
+ * @param {boolean} [options.hideSaleButton=false] - If true, hides the "Sale" button.
+ * @returns {string} The HTML string for the table row (<tr>).
+ */
+function renderStatusRow(record, { isOverdue, hideSaleButton = false }) { // NOSONAR
+    let lastUpdateHtml = '<span class="text-muted">No treatments logged</span>';
+    let followUpDateHtml = '';
     let rowClass = '';
 
     if (record.treatments) {
         const treatments = Object.values(record.treatments).sort((a, b) => new Date(b.treatmentDate) - new Date(a.treatmentDate));
         if (treatments.length > 0) {
             const latestTreatment = treatments[0];
-            lastUpdate = formatDate(latestTreatment.treatmentDate);
+            lastUpdateHtml = `Last Update: <strong>${formatDate(latestTreatment.treatmentDate)}</strong>`;
 
             if (latestTreatment.followUpDate) {
                 const display = getFollowUpDateDisplay(latestTreatment.followUpDate);
-                followUpDateHtml = display.html;
+                // The display.html already contains the full styled span
+                followUpDateHtml = `<div class="mt-1">${display.html}</div>`;
                 rowClass = display.rowClass;
             }
         }
     }
 
-    return `<tr class="${rowClass}">
-        <td><strong>${record.sheepId}</strong></td>
-        <td><span class="${getStatusClass(record.healthStatus)}">${record.healthStatus}</span></td>
-        <td>${formatDate(record.dateRecorded)}</td>
-        <td>${lastUpdate}</td>
-        <td class="text-nowrap">${followUpDateHtml}</td>
-        <td>
-            <button class="btn btn-sm btn-info js-manage-treatment" data-record-id="${record.id}" data-sheep-id="${record.sheepId}"><i class="fas fa-notes-medical"></i> Manage</button>
-            <button class="btn btn-sm btn-outline-primary js-edit-record" data-record-id="${record.id}"><i class="fas fa-edit"></i></button>
-        </td>
-    </tr>`;
+    const saleButton = hideSaleButton ? '' : `<li><a class="dropdown-item js-sale-record" href="#" data-record-id="${record.id}"><i class="fas fa-dollar-sign fa-fw me-2 text-success"></i>Mark as Sold</a></li>`;
+    
+    const manageButton = isOverdue
+        ? `<button class="btn btn-sm btn-warning js-manage-treatment" data-record-id="${record.id}" data-sheep-id="${record.sheepId}"><i class="fas fa-notes-medical"></i> Log Follow-up</button>`
+        : `<button class="btn btn-sm btn-info js-manage-treatment" data-record-id="${record.id}" data-sheep-id="${record.sheepId}"><i class="fas fa-notes-medical"></i> Manage</button>`;
+
+    const actionButtons = `
+        <div class="d-flex align-items-center">
+            ${manageButton}
+            <div class="dropdown ms-2">
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="More actions">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item js-edit-record" href="#" data-record-id="${record.id}"><i class="fas fa-edit fa-fw me-2 text-primary"></i>Edit Profile</a></li>
+                    ${saleButton}
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item js-archive-record" href="#" data-record-id="${record.id}"><i class="fas fa-archive fa-fw me-2 text-secondary"></i>Mark as Deceased</a></li>
+                    <li><a class="dropdown-item text-danger js-delete-record" href="#" data-record-id="${record.id}" data-sheep-id="${record.sheepId}"><i class="fas fa-trash fa-fw me-2"></i>Permanently Delete</a></li>
+                </ul>
+            </div>
+        </div>
+    `;
+
+    return `
+        <tr class="${rowClass}">
+            <td class="align-middle">
+                <a href="#" class="fw-bold profile-link" data-sheep-id="${record.id}">${record.sheepId}</a>
+                <div class="small text-muted">${record.gender || 'N/A'}, ${record.breed || 'N/A'}</div>
+            </td>
+            <td class="align-middle"><span class="badge fs-6 ${getBootstrapStatusClass(record.healthStatus)}">${record.healthStatus}</span></td>
+            <td class="align-middle small">${lastUpdateHtml}${followUpDateHtml}</td>
+            <td class="align-middle text-end">${actionButtons}</td>
+        </tr>
+    `;
+}
+
+function renderTreatmentRow(record) {
+    const isOverdue = getFollowUpStatus(record) === 'overdue';
+    return renderStatusRow(record, { isOverdue: isOverdue, hideSaleButton: isOverdue });
+}
+
+function renderPregnantRow(record) {
+    // This function is now redundant as the logic is moved to renderAllRecordTables
+    // It can be removed in a future cleanup, but is harmless for now.
+    return renderStatusRow(record, { isOverdue: false, hideSaleButton: true });
 }
 
 function renderWeeklyRow(record) {
@@ -1269,49 +1287,38 @@ function renderScheduleRow(record) {
     const vaccinationStatus = getScheduleStatus(record.lastVaccinationDate, 365, record.manualVaccinationDueDate);
 
     const rowClass = (dewormingStatus.isOverdue || vaccinationStatus.isOverdue) ? 'table-danger-light' : '';
-
-    const renderCareCell = (status, notes, lastDate) => {
-        const notesHtml = notes
-            ? `<div class="small text-body-secondary mt-2">
-                 <i class="fas fa-comment-alt me-1 text-info"></i><em class="fst-italic">${notes}</em>
-               </div>`
-            : '';
-
-        // A more elegant display for when no data is available
-        if (status.status === 'Not Set') {
-            return `
-                <td class="align-middle">
-                    <div>${renderScheduleStatusBadge(status)}</div>
-                    <div class="text-body-secondary mt-1 fst-italic">
-                        No care schedule has been recorded for this item.
-                    </div>
-                    ${notesHtml}
-                </td>
-            `;
-        }
-        
-        const lastDateHtml = lastDate ? formatDate(lastDate) : 'N/A';
-
-        let dueTextHtml;
-        const match = status.fullText.match(/(.*)\s\((.*)\)/);
-        if (match) {
-            // If text has a date in parentheses, split and style them differently
-            dueTextHtml = `${match[1]} <span class="text-body-secondary small">(${match[2]})</span>`;
-        } else {
-            dueTextHtml = status.fullText;
-        }
-
-        return `
-            <td class="align-middle">
-                <div>${renderScheduleStatusBadge(status)}</div>
-                <div class="mt-1">
-                    <div class="text-dark-emphasis">${dueTextHtml}</div>
-                    <div class="small text-body-secondary">Last Given: <strong>${lastDateHtml}</strong></div>
-                </div>
-                ${notesHtml}
-            </td>
-        `;
-    };
+    const renderCareCell = (status, notes, lastDate, icon, title) => {
+         const notesHtml = notes
+             ? `<div class="small text-muted mt-2 fst-italic"><i class="fas fa-comment-dots me-1 text-info"></i>${escapeHTML(notes)}</div>`
+             : '';
+ 
+         let statusClass = '';
+         if (status.isOverdue) statusClass = 'border-danger bg-danger-light';
+         else if (status.isUpcoming) statusClass = 'border-warning bg-warning-light';
+ 
+         return `
+             <td class="align-middle">
+                 <div class="p-2 rounded border ${statusClass}">
+                     <div class="d-flex justify-content-between align-items-center">
+                         <h6 class="mb-0 text-dark-emphasis"><i class="fas ${icon} fa-fw me-2"></i>${title}</h6>
+                         ${renderScheduleStatusBadge(status)}
+                     </div>
+                     <hr class="my-2">
+                     <div class="d-flex justify-content-between small">
+                         <div>
+                             <div class="text-muted text-uppercase" style="font-size: .65rem;">Due Date</div>
+                             <div class="fw-bold">${status.dueDate ? formatDate(status.dueDate.toISOString().split('T')[0]) : 'N/A'}</div>
+                         </div>
+                         <div class="text-end">
+                             <div class="text-muted text-uppercase" style="font-size: .65rem;">Last Given</div>
+                             <div class="fw-bold">${lastDate ? formatDate(lastDate) : 'N/A'}</div>
+                         </div>
+                     </div>
+                     ${notesHtml}
+                 </div>
+             </td>
+         `;
+     };
 
     return `
         <tr class="${rowClass}" data-sheep-id="${record.id}">
@@ -1323,8 +1330,8 @@ function renderScheduleRow(record) {
                 <div class="small text-muted">${record.breed || 'N/A'}</div>
             </td>
             
-            ${renderCareCell(dewormingStatus, record.lastDewormingNotes, record.lastDewormingDate)}
-            ${renderCareCell(vaccinationStatus, record.lastVaccinationNotes, record.lastVaccinationDate)}
+            ${renderCareCell(dewormingStatus, record.lastDewormingNotes, record.lastDewormingDate, 'fa-pills text-info', 'Deworming')}
+            ${renderCareCell(vaccinationStatus, record.lastVaccinationNotes, record.lastVaccinationDate, 'fa-syringe text-warning', 'Vaccination')}
 
             <td class="text-center align-middle">
                 <button class="btn btn-sm btn-outline-primary edit-schedule-btn" data-record-id="${record.id}" title="Edit Schedule">
@@ -2854,6 +2861,55 @@ function openEditScheduleModal(recordId) {
     document.getElementById('scheduleManualVaccinationDueDate').value = record.manualVaccinationDueDate || '';
     document.getElementById('scheduleLastVaccinationNotes').value = record.lastVaccinationNotes || '';
 
+    // Manually clear the "Log New Care Event" form fields since it's a div, not a form
+    document.getElementById('careEventType').value = 'Deworming'; // Reset to default
+    document.getElementById('careEventMedication').value = '';
+    document.getElementById('careEventNotes').value = '';
+    // Set date back to today
+    document.getElementById('careEventDate').valueAsDate = new Date();
+    // --- Populate Care History ---
+    const historyContainer = document.getElementById('scheduleHistoryContainer');
+    const careHistory = [];
+    if (record.treatments) {
+        Object.entries(record.treatments).forEach(([entryId, treatment]) => {
+            if (treatment.treatmentType === 'Deworming' || treatment.treatmentType === 'Vaccination') {
+                careHistory.push({ ...treatment, id: entryId });
+            }
+        });
+    }
+
+    if (careHistory.length > 0) {
+        // Sort by date, newest first
+        careHistory.sort((a, b) => new Date(b.treatmentDate) - new Date(a.treatmentDate));
+
+        const historyHtml = careHistory.map(entry => {
+            const icon = entry.treatmentType === 'Deworming'
+                ? '<i class="fas fa-pills fa-fw text-info me-2"></i>'
+                : '<i class="fas fa-syringe fa-fw text-warning me-2"></i>';
+            const notes = entry.treatmentNotes ? ` - <em class="text-muted">${escapeHTML(entry.treatmentNotes)}</em>` : '';
+            const buttons = `
+                <div class="ms-auto ps-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary py-0 px-1 js-edit-treatment-from-schedule" data-record-id="${recordId}" data-entry-id="${entry.id}" title="Edit this entry">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 js-delete-treatment" data-record-id="${recordId}" data-entry-id="${entry.id}" title="Delete this entry">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+            return `<div class="list-group-item list-group-item-action flex-column align-items-start p-2 border-0">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">${icon}${entry.treatmentType}</h6>
+                            <small>${formatDate(entry.treatmentDate)}</small>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center"><p class="mb-1 small flex-grow-1">${escapeHTML(entry.medication || 'N/A')}${notes}</p>${buttons}</div>
+                    </div>`;
+        }).join('');
+        historyContainer.innerHTML = `<div class="list-group list-group-flush">${historyHtml}</div>`;
+    } else {
+        historyContainer.innerHTML = '<p class="text-muted text-center p-3">No deworming or vaccination history found.</p>';
+    }
+
     editScheduleModal.show();
 }
 
@@ -2877,6 +2933,62 @@ function handleUpdateSchedule(e) {
     }).catch(error => {
         alert("An error occurred while saving the schedule: " + error.message);
     });
+}
+
+function handleLogCareEvent(e) {
+    e.preventDefault();
+    const recordId = document.getElementById('scheduleEditRecordId').value;
+    if (!recordId) return alert('Error: No record ID found to save care event.');
+
+    const record = allRecords.find(r => r.id === recordId);
+    if (!record) return alert('Error: Could not find the sheep record.');
+
+    const careType = document.getElementById('careEventType').value;
+    const careDate = document.getElementById('careEventDate').value;
+    const careNotes = document.getElementById('careEventNotes').value.trim();
+
+    if (!careDate) {
+        return alert('Please select a date for the care event.');
+    }
+
+    const newTreatmentEntry = {
+        treatmentDate: careDate,
+        treatmentType: careType,
+        medication: document.getElementById('careEventMedication').value.trim(),
+        treatmentNotes: careNotes,
+        symptoms: 'Routine preventative care', // Default symptom
+    };
+
+    const allUpdates = {};
+    const newTreatmentKey = push(child(ref(db), `sheepHealthRecords/${recordId}/treatments`)).key;
+    allUpdates[`sheepHealthRecords/${recordId}/treatments/${newTreatmentKey}`] = newTreatmentEntry;
+
+    // Check if this new event is the latest one and update the summary fields if so.
+    if (careType === 'Deworming') {
+        const lastDate = record.lastDewormingDate ? new Date(record.lastDewormingDate) : null;
+        if (!lastDate || new Date(careDate) >= lastDate) {
+            allUpdates[`sheepHealthRecords/${recordId}/lastDewormingDate`] = careDate;
+            allUpdates[`sheepHealthRecords/${recordId}/lastDewormingNotes`] = careNotes;
+        }
+    } else if (careType === 'Vaccination') {
+        const lastDate = record.lastVaccinationDate ? new Date(record.lastVaccinationDate) : null;
+        if (!lastDate || new Date(careDate) >= lastDate) {
+            allUpdates[`sheepHealthRecords/${recordId}/lastVaccinationDate`] = careDate;
+            allUpdates[`sheepHealthRecords/${recordId}/lastVaccinationNotes`] = careNotes;
+            // Clear any manual override, as the new vaccination resets the cycle
+            allUpdates[`sheepHealthRecords/${recordId}/manualVaccinationDueDate`] = null;
+        }
+    }
+
+    update(ref(db), allUpdates).then(() => {
+        showToast('History Saved', `${careType} event was successfully logged.`);
+        // Manually clear the form fields since it's a div, not a form
+        document.getElementById('careEventType').value = 'Deworming'; // Reset to default
+        document.getElementById('careEventMedication').value = '';
+        document.getElementById('careEventNotes').value = '';
+        // Set date back to today
+        document.getElementById('careEventDate').valueAsDate = new Date();
+    }).catch(error => alert('Error saving care event: ' + error.message));
 }
 
 function deleteRecord(recordId, sheepId) {
@@ -3017,30 +3129,49 @@ function openTreatmentLog(recordId, sheepId, entryIdToEdit = null) {
     const listener = onValue(treatmentsRef, (snapshot) => {
         const treatmentLogTbody = document.getElementById('treatmentLogTbody');
         const treatmentsData = snapshot.val();
-        if (treatmentsData) {
+        if (treatmentsData && treatmentLogTbody) {
             const sortedEntries = Object.entries(treatmentsData).sort((a, b) => new Date(b[1].treatmentDate) - new Date(a[1].treatmentDate));
-            
-            const historyHtml = sortedEntries.map(([entryId, entry]) => {
-                // The headers for this modal are: Date, Symptoms, Medication, Dosage, Cost, Notes, Actions
-                const costHtml = entry.cost ? `₹${parseFloat(entry.cost).toFixed(2)}` : '';
+
+            const historyHtml = sortedEntries.map(([entryId, entry]) => { // NOSONAR
+                const followUpDisplay = getFollowUpDateDisplay(entry.followUpDate);
+                const detailsHtml = `
+                    <div class="d-flex justify-content-around text-center small">
+                        <div class="px-2">
+                            <div class="text-muted text-uppercase" style="font-size: .65rem;">Medication</div>
+                            <div class="fw-bold fs-6 text-primary">${escapeHTML(entry.medication || 'N/A')}</div>
+                        </div>
+                        <div class="px-2 border-start">
+                            <div class="text-muted text-uppercase" style="font-size: .65rem;">Dosage</div>
+                            <div class="fw-bold fs-6 text-info">${escapeHTML(entry.dosage || 'N/A')}</div>
+                        </div>
+                        <div class="px-2 border-start">
+                            <div class="text-muted text-uppercase" style="font-size: .65rem;">Follow-up</div>
+                            <div class="fw-bold fs-6">${followUpDisplay.html}</div>
+                        </div>
+                    </div>
+                `;
+
                 return `
-                    <tr>
-                        <td>${formatDate(entry.treatmentDate)}</td>
-                        <td>${entry.symptoms || ''}</td>
-                        <td>${entry.medication || ''}</td>
-                        <td>${entry.dosage || ''}</td>
-                        <td class="text-end">${costHtml}</td>
-                        <td>${entry.treatmentNotes || ''}</td>
-                        <td class="text-center">
-                            <button class="btn btn-sm btn-outline-primary js-edit-treatment" data-record-id="${recordId}" data-entry-id="${entryId}" title="Edit"><i class="fas fa-edit fa-fw"></i></button>
-                            <button class="btn btn-sm btn-outline-danger js-delete-treatment" data-record-id="${recordId}" data-entry-id="${entryId}" title="Delete"><i class="fas fa-trash fa-fw"></i></button>
-                        </td>
-                    </tr>
+                <tr class="${followUpDisplay.rowClass}">
+                    <td class="align-middle">
+                        <div class="fw-bold">${formatDate(entry.treatmentDate)}</div>
+                        <span class="badge bg-secondary mt-1">${escapeHTML(entry.treatmentType || 'General')}</span>
+                    </td>
+                    <td class="align-middle">
+                        ${detailsHtml}
+                    </td>
+                    <td class="small fst-italic text-muted align-middle text-center">${escapeHTML(entry.treatmentNotes || '')}</td>
+                    <td class="text-end fw-bold align-middle">${entry.cost ? formatCurrency(entry.cost) : 'N/A'}</td>
+                    <td class="text-center align-middle">
+                        <button class="btn btn-sm btn-outline-primary js-edit-treatment" data-record-id="${recordId}" data-entry-id="${entryId}" title="Edit"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-outline-danger js-delete-treatment" data-record-id="${recordId}" data-entry-id="${entryId}" title="Delete"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
                 `;
             }).join('');
             treatmentLogTbody.innerHTML = historyHtml;
         } else {
-            treatmentLogTbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No treatment history found.</td></tr>';
+            if (treatmentLogTbody) treatmentLogTbody.innerHTML = '<tr><td colspan="5" class="text-center p-4 text-muted">No treatment history found. Add a new entry above to begin.</td></tr>';
         }
     });
 
@@ -3262,7 +3393,7 @@ function openEditSoldModal(recordId) {
         return;
     }
     // These element IDs must exist in a new modal in your HTML file
-    document.getElementById('editSoldRecordId').value = recordId;
+    document.getElementById('editSoldRecordId').value = recordId; // NOSONAR
     document.getElementById('editSoldSheepId').textContent = record.sheepId; // Display only, not editable
     document.getElementById('editSoldBuyingPrice').value = record.buyingPrice || '';
     document.getElementById('editSoldSalePrice').value = record.salePrice || '';
@@ -3282,7 +3413,7 @@ function handleUpdateSoldRecord(e) {
 
     const sheepId = document.getElementById('editSoldSheepId').textContent;
     const updatedData = {
-        buyingPrice: parseFloat(document.getElementById('editSoldBuyingPrice').value) || null,
+        buyingPrice: parseFloat(document.getElementById('editSoldBuyingPrice').value) || null, // NOSONAR
         salePrice: parseFloat(document.getElementById('editSoldSalePrice').value) || null,
         saleDate: document.getElementById('editSoldSaleDate').value,
         saleBuyer: document.getElementById('editSoldSaleBuyer').value.trim(),
@@ -3453,15 +3584,44 @@ function renderProfileForSheep(recordId) {
     editBtn.style.display = isActiveRecord ? 'block' : 'none';
 
     updateElement('profileSheepId', record.sheepId);
-    updateElement('profileHealthStatus', `<span class="badge fs-6 ${getBootstrapStatusClass(record.healthStatus)}">${record.healthStatus}</span>`, true);
-    updateElement('profileAge', calculateAge(record.dateRecorded));
-    updateElement('profileDateRecorded', formatDate(record.dateRecorded));
-    updateElement('profileGender', record.gender || 'N/A');
-    updateElement('profileBreed', record.breed || 'N/A');
-    updateElement('profileBuyingPrice', record.buyingPrice ? `₹${parseFloat(record.buyingPrice).toFixed(2)}` : 'N/A');
-    updateElement('profileInitialNotes', record.notes || 'No notes recorded.');
+    updateElement('profileHealthStatus', `<span class="badge fs-5 ${getBootstrapStatusClass(record.healthStatus)}">${record.healthStatus}</span>`, true);
 
-    const saleInfoCard = document.getElementById('profileSaleInfoCard');
+    // --- Key Information Stat Boxes ---
+    const keyInfoContainer = document.getElementById('profileKeyInfoContainer');
+    if (keyInfoContainer) {
+        const createStatBox = (label, value, icon, colorClass = 'text-primary') => `
+            <div class="col-6 mb-3">
+                <div class="text-center p-2 border rounded bg-light">
+                    <div class="small text-muted text-uppercase" style="font-size: .65rem;">${label}</div>
+                    <div class="fw-bold fs-5 ${colorClass}"><i class="fas ${icon} fa-fw me-1 opacity-75"></i>${value}</div>
+                </div>
+            </div>
+        `;
+        keyInfoContainer.innerHTML = `
+            ${createStatBox('Age', calculateAge(record.dateRecorded), 'fa-birthday-cake', 'text-info')}
+            ${createStatBox('Gender', record.gender || 'N/A', record.gender === 'Male' ? 'fa-mars' : 'fa-venus', 'text-pink')}
+            ${createStatBox('Breed', record.breed || 'N/A', 'fa-tag', 'text-secondary')}
+            ${createStatBox('Buy Price', record.buyingPrice ? formatCurrency(record.buyingPrice) : 'N/A', 'fa-rupee-sign', 'text-success')}
+        `;
+    }
+
+    // --- Notes Section ---
+    const notesContainer = document.getElementById('profileNotesContainer');
+    if (notesContainer) {
+        const notesHtml = record.notes
+            ? `<div class="small text-muted fst-italic" style="white-space: pre-wrap;">${escapeHTML(record.notes)}</div>`
+            : '<div class="small text-muted fst-italic">No initial notes recorded.</div>';
+        
+        notesContainer.innerHTML = `
+            <div>
+                <i class="fas fa-sticky-note fa-fw me-2 text-muted"></i><span class="text-muted">Initial Notes</span>
+                <span class="ms-2 small text-muted">(Recorded on: ${formatDate(record.dateRecorded)})</span>
+            </div>
+            ${notesHtml}
+        `;
+    }
+
+    const saleInfoCard = document.getElementById('profileSaleInfoCard'); // NOSONAR
     if (record.saleDate) {
         saleInfoCard.style.display = 'block';
         updateElement('profileSaleDate', formatDate(record.saleDate));
@@ -3487,12 +3647,38 @@ function renderProfileForSheep(recordId) {
     }
 
     // --- Preventative Care ---
-    const dewormingStatus = getScheduleStatus(record.lastDewormingDate, 30, null);
-    const vaccinationStatus = getScheduleStatus(record.lastVaccinationDate, 365, record.manualVaccinationDueDate);
-    updateElement('profileDewormingStatus', renderScheduleStatusBadge(dewormingStatus, record.lastDewormingDate), true);
-    updateElement('profileDewormingNotes', record.lastDewormingNotes || 'No notes recorded.');
-    updateElement('profileVaccinationStatus', renderScheduleStatusBadge(vaccinationStatus, record.lastVaccinationDate), true);
-    updateElement('profileVaccinationNotes', record.lastVaccinationNotes || 'No notes recorded.');
+    const careContainer = document.getElementById('profilePreventativeCareContainer');
+    if (careContainer) {
+        const dewormingStatus = getScheduleStatus(record.lastDewormingDate, 30, null);
+        const vaccinationStatus = getScheduleStatus(record.lastVaccinationDate, 365, record.manualVaccinationDueDate);
+
+        const renderCareCard = (status, notes, lastDate, icon, title) => {
+            const notesHtml = notes ? `<div class="small text-muted mt-1 fst-italic"><i class="fas fa-comment-dots me-1 text-info opacity-75"></i>${escapeHTML(notes)}</div>` : '';
+            let statusClass = '';
+            if (status.isOverdue) statusClass = 'border-danger-light bg-danger-light';
+            else if (status.isUpcoming) statusClass = 'border-warning-light bg-warning-light';
+
+            return `
+                <div class="p-2 rounded border ${statusClass} mb-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 small fw-bold"><i class="fas ${icon} fa-fw me-2"></i>${title}</h6>
+                        ${renderScheduleStatusBadge(status)}
+                    </div>
+                    <div class="d-flex justify-content-between small mt-1">
+                        <div>
+                            <div class="text-muted" style="font-size: .7rem;">Due: <strong>${status.dueDate ? formatDate(status.dueDate.toISOString().split('T')[0]) : 'N/A'}</strong></div>
+                        </div>
+                        <div class="text-end">
+                            <div class="text-muted" style="font-size: .7rem;">Last: <strong>${lastDate ? formatDate(lastDate) : 'N/A'}</strong></div>
+                        </div>
+                    </div>
+                    ${notesHtml}
+                </div>
+            `;
+        };
+
+        careContainer.innerHTML = renderCareCard(dewormingStatus, record.lastDewormingNotes, record.lastDewormingDate, 'fa-pills text-info', 'Deworming') + renderCareCard(vaccinationStatus, record.lastVaccinationNotes, record.lastVaccinationDate, 'fa-syringe text-warning', 'Vaccination');
+    }
 
     // --- Right Column Renders ---
     renderProfileWeightTabContent(record);
@@ -3574,13 +3760,10 @@ function renderProfileWeightTabContent(record) {
  * @param {object} record - The full sheep record object.
  */
 function renderProfileTreatmentTabContent(record) {
-    const container = document.getElementById('profileTreatmentHistoryTbody');
+    const container = document.getElementById('profileTreatmentHistoryContainer');
     if (!container) return;
 
-    const treatments = record.treatments
-        ? Object.entries(record.treatments).map(([id, data]) => ({ ...data, id }))
-        : [];
-
+    const treatments = record.treatments ? Object.entries(record.treatments).map(([id, data]) => ({ ...data, id })) : [];
     treatments.sort((a, b) => new Date(b.treatmentDate) - new Date(a.treatmentDate));
 
     if (treatments.length > 0) {
@@ -3617,36 +3800,21 @@ function renderProfileTreatmentTabContent(record) {
                             </div>
                         </div>
                         <hr class="my-2">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <dl class="row mb-0">
-                                    <dt class="col-sm-4">Medication:</dt>
-                                    <dd class="col-sm-8">${escapeHTML(medication)}</dd>
-                                    <dt class="col-sm-4">Dosage:</dt>
-                                    <dd class="col-sm-8">${escapeHTML(dosage)}</dd>
-                                    <dt class="col-sm-4">Symptoms:</dt>
-                                    <dd class="col-sm-8">${escapeHTML(symptoms)}</dd>
-                                </dl>
-                            </div>
-                            <div class="col-md-6">
-                                <dl class="row mb-0">
-                                    <dt class="col-sm-4">Cost:</dt>
-                                    <dd class="col-sm-8">${cost}</dd>
-                                    <dt class="col-sm-4">Follow-up:</dt>
-                                    <dd class="col-sm-8">${followUpDate}</dd>
-                                    <dt class="col-sm-4">Notes:</dt>
-                                    <dd class="col-sm-8">${escapeHTML(notes)}</dd>
-                                </dl>
-                            </div>
+                        <div class="small">
+                            <div><strong>Medication/Treatment:</strong> ${escapeHTML(medication)}</div>
+                            <div><strong>Dosage:</strong> ${escapeHTML(dosage)}</div>
+                            <div><strong>Symptoms Observed:</strong> ${escapeHTML(symptoms)}</div>
+                            <div><strong>Follow-up Date:</strong> ${followUpDate}</div>
+                            <div><strong>Cost:</strong> ${cost}</div>
+                            ${notes !== 'None' ? `<div><strong>Notes:</strong> <em class="text-muted">${escapeHTML(notes)}</em></div>` : ''}
                         </div>
                     </div>
                 </div>
             `;
-            // Wrap card in a single-cell table row to fit the existing <tbody> structure
-            return `<tr><td colspan="7" class="p-0" style="border: none; background-color: transparent;">${cardHtml}</td></tr>`;
+            return cardHtml;
         }).join('');
     } else {
-        container.innerHTML = '<tr><td colspan="7" class="text-center p-4">No treatment history recorded.</td></tr>';
+        container.innerHTML = '<div class="text-center p-4 text-muted">No treatment history recorded.</div>';
     }
 }
 
@@ -3895,18 +4063,29 @@ function getStatusClass(status) {
 function filterTable(inputElement, tableBodyId) {
     const searchTerm = inputElement.value.toLowerCase();
     const tableBody = document.getElementById(tableBodyId);
-    if (!tableBody) return;
-    const rows = tableBody.querySelectorAll('tr');
-    rows.forEach(row => {
-        // Ignore placeholder rows (e.g., "No records found")
-        if (row.cells.length === 1 && row.cells[0].colSpan > 1) {
+    if (!tableBody) {
+        console.warn(`Filter target '${tableBodyId}' not found.`);
+        return;
+    }
+ 
+    // Determine if we are filtering a table (tr) or a list-group (div)
+    const isTable = tableBody.tagName.toLowerCase() === 'tbody';
+    const items = isTable ? tableBody.querySelectorAll('tr') : tableBody.querySelectorAll('.list-group-item');
+ 
+    items.forEach(item => {
+        // Ignore placeholder rows/items
+        if ((isTable && item.cells.length === 1 && item.cells[0].colSpan > 1) ||
+            (!isTable && item.children.length === 0)) { // Simple check for empty placeholder div
             return;
         }
-
-        if (row.cells.length > 0) {
-            const rowText = row.textContent.toLowerCase();
-            const isVisible = rowText.includes(searchTerm);
-            row.style.display = isVisible ? '' : 'none';
+        // Check if the item's text content includes the search term
+        const itemText = item.textContent.toLowerCase();
+        const isVisible = itemText.includes(searchTerm);
+        if (isTable) {
+            item.style.display = isVisible ? '' : 'none';
+        } else {
+            // For list items (which are flex containers), use 'd-none' for better compatibility
+            item.classList.toggle('d-none', !isVisible);
         }
     });
 }
@@ -4166,6 +4345,14 @@ function addEventListeners() {
                 alert('Could not find the parent record for this treatment entry.');
             }
         }
+        else if (action = getAction('.js-edit-treatment-from-schedule')) {
+            const { recordId, entryId } = action;
+            const record = allRecords.find(r => r.id === recordId);
+            if (record) {
+                if (editScheduleModal) editScheduleModal.hide();
+                openTreatmentLog(recordId, record.sheepId, entryId);
+            }
+        }
         else if (action = getAction('.js-delete-treatment')) deleteTreatmentEntry(action.recordId, action.entryId);
         else if (action = getAction('.js-delete-feed-item')) deleteFeedItem(action.feedId, action.feedName);
         else if (action = getAction('.js-edit-feed-item')) openEditFeedModal(action.feedId);
@@ -4256,6 +4443,7 @@ function addEventListeners() {
     addSafeEventListener('addFeedForm', 'submit', handleAddFeedItem);
     addSafeEventListener('editFeedForm', 'submit', handleUpdateFeedItem);
     addSafeEventListener('weightEntryForm', 'submit', handleSaveWeight);
+    addSafeEventListener('saveCareEventBtn', 'click', handleLogCareEvent);
 
     addSafeEventListener('editScheduleForm', 'submit', handleUpdateSchedule);
     // --- Filters & Search ---
