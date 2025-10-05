@@ -1384,18 +1384,23 @@
                     <p class="card-text text-muted">Set the default number of days for reminder cycles. These values are used to calculate due dates from the last treatment date.</p>
                     <form id="settingsForm">
                         <div class="row">
-                            <div class="col-md-4 mb-3">
+                            <div class="col-md-6 mb-3">
                                 <label for="settingDewormingInterval" class="form-label">Deworming Cycle (days)</label>
                                 <input type="number" class="form-control" id="settingDewormingInterval" required>
                             </div>
-                            <div class="col-md-4 mb-3">
+                            <div class="col-md-6 mb-3">
                                 <label for="settingVaccinationInterval" class="form-label">Vaccination Cycle (days)</label>
                                 <input type="number" class="form-control" id="settingVaccinationInterval" required>
                             </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="settingReminderWindow" class="form-label">Reminder Window (days)</label>
+                            <div class="col-md-6 mb-3">
+                                <label for="settingDewormingReminderWindow" class="form-label">Deworming Reminder Window (days)</label>
+                                <input type="number" class="form-control" id="settingDewormingReminderWindow" required aria-describedby="dewormingReminderHelp">
+                                <div id="dewormingReminderHelp" class="form-text">How many days before a deworming is due to show a reminder.</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="settingReminderWindow" class="form-label">General Reminder Window (days)</label>
                                 <input type="number" class="form-control" id="settingReminderWindow" required aria-describedby="reminderWindowHelp">
-                                <div id="reminderWindowHelp" class="form-text">How many days before a due date to show an "upcoming" reminder.</div>
+                                <div id="reminderWindowHelp" class="form-text">For vaccinations and treatment follow-ups.</div>
                             </div>
                         </div>
                         <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Save Settings</button>
