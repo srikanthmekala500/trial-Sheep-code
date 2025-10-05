@@ -66,7 +66,8 @@ let allRecords = [];
 let appSettings = {
     dewormingInterval: 30,  // Default value
     vaccinationInterval: 365, // Default value
-    reminderWindow: 30 // Default value
+    reminderWindow: 30, // Default value
+    dewormingReminderWindow: 5 // Default value
 };
 
 let soldRecords = [];
@@ -364,6 +365,7 @@ function showSection(sectionName) {
     if (sectionName === 'settings') {
         document.getElementById('settingDewormingInterval').value = appSettings.dewormingInterval;
         document.getElementById('settingVaccinationInterval').value = appSettings.vaccinationInterval;
+        document.getElementById('settingDewormingReminderWindow').value = appSettings.dewormingReminderWindow;
         document.getElementById('settingReminderWindow').value = appSettings.reminderWindow;
     }
     const sidebar = document.querySelector('.dashboard-sidebar');
@@ -665,7 +667,10 @@ function fetchFeedInventory() {
 }
 
 function fetchSettings() {
-    const settingsRef = ref(db, "settings");
+    const user = auth.currentUser;
+    if (!user) return; // Don't fetch if no user is logged in
+
+    const settingsRef = ref(db, `users/${user.uid}/settings`);
     onValue(settingsRef, (snapshot) => {
         if (snapshot.exists()) {
             const settings = snapshot.val();
@@ -1328,8 +1333,8 @@ function renderWeeklyRow(record) {
  * @returns {string} The HTML string for the table row (<tr>).
  */
 function renderScheduleRow(record) {
-    const dewormingStatus = getScheduleStatus(record.lastDewormingDate, appSettings.dewormingInterval, null);
-    const vaccinationStatus = getScheduleStatus(record.lastVaccinationDate, appSettings.vaccinationInterval, record.manualVaccinationDueDate);
+    const dewormingStatus = getScheduleStatus(record.lastDewormingDate, appSettings.dewormingInterval, null, 'Deworming');
+    const vaccinationStatus = getScheduleStatus(record.lastVaccinationDate, appSettings.vaccinationInterval, record.manualVaccinationDueDate, 'Vaccination');
 
     const rowClass = (dewormingStatus.isOverdue || vaccinationStatus.isOverdue) ? 'table-danger-light' : '';
     const renderCareCell = (status, notes, lastDate, icon, title) => {
@@ -1414,7 +1419,7 @@ function checkTreatmentFollowUps() {
                     } else if (dayDiff === 0) {
                         status = 'Due Today';
                         message = 'Treatment follow-up is due today.';
-                    } else if (dayDiff <= 7) {
+                    } else if (dayDiff <= appSettings.reminderWindow) {
                         status = 'Upcoming';
                         message = `Treatment follow-up due in ${dayDiff} day(s).`;
                     }
@@ -1447,9 +1452,9 @@ function checkPreventativeCareReminders() {
     };
 
     masterAllRecords.forEach(record => {
-        const dewormingDayDiff = getDayDiffFromLastDate(record.lastDewormingDate, 30);
-        // Show reminders for anything due within the next 30 days or that is overdue
-        if (dewormingDayDiff !== null && dewormingDayDiff <= 30) {
+        const dewormingDayDiff = getDayDiffFromLastDate(record.lastDewormingDate, appSettings.dewormingInterval);
+        // Show deworming reminders based on its specific reminder window setting.
+        if (dewormingDayDiff !== null && dewormingDayDiff <= appSettings.dewormingReminderWindow) {
             let status = '', message = '';
             if (dewormingDayDiff < 0) {
                 status = 'Overdue';
@@ -1625,8 +1630,8 @@ function updateScheduleView(filter = currentScheduleFilter) {
 
     // Process records to calculate statuses and counts in a single pass.
     const recordsWithStatus = sortedRecords.map(record => {
-        const dewormStatus = getScheduleStatus(record.lastDewormingDate, appSettings.dewormingInterval, null);
-        const vaxStatus = getScheduleStatus(record.lastVaccinationDate, appSettings.vaccinationInterval, record.manualVaccinationDueDate);
+        const dewormStatus = getScheduleStatus(record.lastDewormingDate, appSettings.dewormingInterval, null, 'Deworming');
+        const vaxStatus = getScheduleStatus(record.lastVaccinationDate, appSettings.vaccinationInterval, record.manualVaccinationDueDate, 'Vaccination');
         const isOverdue = dewormStatus.isOverdue || vaxStatus.isOverdue;
         const isUpcoming = (dewormStatus.isUpcoming && !dewormStatus.isOverdue) || (vaxStatus.isUpcoming && !vaxStatus.isOverdue);
 
@@ -1669,9 +1674,10 @@ function updateScheduleView(filter = currentScheduleFilter) {
  * @param {string | null} lastDateString - The date of the last treatment.
  * @param {number} daysUntilDue - The number of days in the cycle.
  * @param {string | null} manualDueDateString - An override for the due date.
+ * @param {string} [title=''] - The title of the care type (e.g., 'Deworming').
  * @returns {{status: string, fullText: string, isOverdue: boolean, isUpcoming: boolean, dueDate: Date | null}} An object with status details.
  */
-function getScheduleStatus(lastDateString, daysUntilDue, manualDueDateString) {
+function getScheduleStatus(lastDateString, daysUntilDue, manualDueDateString, title = '') {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -1698,7 +1704,7 @@ function getScheduleStatus(lastDateString, daysUntilDue, manualDueDateString) {
         return { status: 'Overdue', fullText: `Was due on ${formattedDueDate}`, isOverdue: true, isUpcoming: false, dueDate };
     } else if (dayDiff === 0) {
         return { status: 'Upcoming', fullText: `Due today (${formattedDueDate})`, isOverdue: false, isUpcoming: true, dueDate };
-    } else if (dayDiff <= appSettings.reminderWindow) {
+    } else if (dayDiff <= (title === 'Deworming' ? appSettings.dewormingReminderWindow : appSettings.reminderWindow)) {
         const dueText = `Due in ${dayDiff} day(s)`;
         return { status: 'Upcoming', fullText: `${dueText} (${formattedDueDate})`, isOverdue: false, isUpcoming: true, dueDate };
     } else {
@@ -3485,17 +3491,22 @@ function handleSaveSettings(e) {
     e.preventDefault();
     const newSettings = {
         dewormingInterval: parseInt(document.getElementById('settingDewormingInterval').value, 10),
-        vaccinationInterval: parseInt(document.getElementById('settingVaccinationInterval').value, 10),
-        reminderWindow: parseInt(document.getElementById('settingReminderWindow').value, 10)
+        vaccinationInterval: parseInt(document.getElementById('settingVaccinationInterval').value, 10), // NOSONAR
+        reminderWindow: parseInt(document.getElementById('settingReminderWindow').value, 10),
+        dewormingReminderWindow: parseInt(document.getElementById('settingDewormingReminderWindow').value, 10)
     };
+
+    const user = auth.currentUser;
+    if (!user) {
+        return alert('Error: You are not logged in. Cannot save settings.');
+    }
 
     if (Object.values(newSettings).some(val => isNaN(val) || val <= 0)) {
         return alert('Please enter valid, positive numbers for all interval fields.');
     }
 
-    update(ref(db, 'settings'), newSettings).then(() => {
+    update(ref(db, `users/${user.uid}/settings`), newSettings).then(() => {
         showToast('Settings Saved', 'Your new intervals have been saved successfully.');
-        // The onValue listener for settings will automatically update the app state.
     }).catch(error => {
         alert('Error saving settings: ' + error.message);
     });
@@ -3676,8 +3687,8 @@ function renderProfileForSheep(recordId) {
             `;
         };
 
-        const dewormingStatus = getScheduleStatus(record.lastDewormingDate, appSettings.dewormingInterval, null);
-        const vaccinationStatus = getScheduleStatus(record.lastVaccinationDate, appSettings.vaccinationInterval, record.manualVaccinationDueDate);
+        const dewormingStatus = getScheduleStatus(record.lastDewormingDate, appSettings.dewormingInterval, null, 'Deworming');
+        const vaccinationStatus = getScheduleStatus(record.lastVaccinationDate, appSettings.vaccinationInterval, record.manualVaccinationDueDate, 'Vaccination');
 
         careContainer.innerHTML = `
             <ul class="list-group list-group-flush">
