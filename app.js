@@ -3147,14 +3147,22 @@ function openTreatmentLog(recordId, sheepId, entryIdToEdit = null) {
                     </div>
                 `;
 
+                const symptomsHtml = entry.symptoms
+                    ? `<div class="mt-2 small text-danger-emphasis"><i class="fas fa-stethoscope fa-fw me-1"></i><strong>Symptoms:</strong> ${escapeHTML(entry.symptoms)}</div>`
+                    : '';
+
+                const treatmentIcon = getTreatmentIcon(entry.treatmentType);
+                const treatmentBadgeClass = getTreatmentBadgeClass(entry.treatmentType);
+
                 return `
                 <tr class="${followUpDisplay.rowClass}">
                     <td class="align-middle">
                         <div class="fw-bold">${formatDate(entry.treatmentDate)}</div>
-                        <span class="badge bg-secondary mt-1">${escapeHTML(entry.treatmentType || 'General')}</span>
+                        <span class="badge ${treatmentBadgeClass} mt-1"><i class="fas ${treatmentIcon} fa-fw me-1"></i>${escapeHTML(entry.treatmentType || 'General')}</span>
                     </td>
                     <td class="align-middle">
                         ${detailsHtml}
+                        ${symptomsHtml}
                     </td>
                     <td class="small fst-italic text-muted align-middle text-center">${escapeHTML(entry.treatmentNotes || '')}</td>
                     <td class="text-end fw-bold align-middle">${entry.cost ? formatCurrency(entry.cost) : 'N/A'}</td>
@@ -3213,6 +3221,38 @@ function openTreatmentLog(recordId, sheepId, entryIdToEdit = null) {
     }
 
     treatmentLogModal.show();
+}
+
+/**
+ * Returns an icon class based on the treatment type.
+ * @param {string} treatmentType - The type of treatment (e.g., 'General', 'Vaccination').
+ * @returns {string} A Font Awesome icon class string.
+ */
+function getTreatmentIcon(treatmentType) {
+    switch (treatmentType) {
+        case 'General': return 'fa-pills';
+        case 'Deworming': return 'fa-bug';
+        case 'Vaccination': return 'fa-syringe';
+        case 'Feed': return 'fa-wheat-awn';
+        case 'Other': return 'fa-question-circle';
+        default: return 'fa-pills';
+    }
+}
+
+/**
+ * Returns a Bootstrap background color class based on the treatment type.
+ * @param {string} treatmentType - The type of treatment.
+ * @returns {string} A Bootstrap background color class string.
+ */
+function getTreatmentBadgeClass(treatmentType) {
+    switch (treatmentType) {
+        case 'General': return 'bg-primary';
+        case 'Deworming': return 'bg-info text-dark';
+        case 'Vaccination': return 'bg-warning text-dark';
+        case 'Feed': return 'bg-success';
+        case 'Other': return 'bg-secondary';
+        default: return 'bg-secondary';
+    }
 }
 
 function deleteTreatmentEntry(recordId, entryId) {
@@ -3793,6 +3833,13 @@ function renderProfileTreatmentTabContent(record) {
             const followUpDisplay = getFollowUpDateDisplay(entry.followUpDate);
             const notes = entry.treatmentNotes || 'None';
 
+            const treatmentIcon = getTreatmentIcon(entry.treatmentType);
+            const treatmentBadgeClass = getTreatmentBadgeClass(entry.treatmentType);
+            const symptomsHtml = entry.symptoms
+                ? `<div class="mt-2 small text-danger-emphasis"><i class="fas fa-stethoscope fa-fw me-1"></i><strong>Symptoms:</strong> ${escapeHTML(entry.symptoms)}</div>`
+                : '';
+
+
             const detailsHtml = `
                 <div class="d-flex justify-content-around text-center small">
                     <div class="px-2">
@@ -3814,9 +3861,12 @@ function renderProfileTreatmentTabContent(record) {
                 <tr class="${followUpDisplay.rowClass}">
                     <td>
                         <div class="fw-bold">${formatDate(entry.treatmentDate)}</div>
-                        <span class="badge bg-secondary mt-1">${escapeHTML(treatmentType)}</span>
+                        <span class="badge ${treatmentBadgeClass} mt-1"><i class="fas ${treatmentIcon} fa-fw me-1"></i>${escapeHTML(treatmentType)}</span>
                     </td>
-                    <td>${detailsHtml}</td>
+                    <td>
+                        ${detailsHtml}
+                        ${symptomsHtml}
+                    </td>
                     <td class="text-end fw-bold">${cost}</td>
                     <td class="small fst-italic text-muted">${notes !== 'None' ? escapeHTML(notes) : ''}</td>
                     <td class="text-center">
@@ -4450,6 +4500,11 @@ function addEventListeners() {
     // --- Form Submissions ---
     addSafeEventListener('sheepHealthForm', 'submit', handleAddRecord);
     addSafeEventListener('editSheepForm', 'submit', handleUpdateRecord);
+    mainApp.addEventListener('input', e => {
+        if (e.target.matches('#treatmentLogSearchInput, #profileTreatmentSearchInput')) {
+            filterTable(e.target, e.target.dataset.tableBodyId);
+        }
+    });
     addSafeEventListener('saleSheepForm', 'submit', handleSaleSubmit);
     addSafeEventListener('addTreatmentForm', 'submit', handleSaveTreatment);
     addSafeEventListener('batchTreatmentForm', 'submit', handleBatchSaveTreatment);
