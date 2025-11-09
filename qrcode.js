@@ -84,48 +84,46 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         } else {
             // --- NOT FOUND PATH ---
-            // The ID is not in the active list. Stop the scanner and offer to search other sections.
-            html5QrCode.stop().catch(err => console.warn("Scanner stopped to show search options.", err));
+            // The ID is not in the active list. Offer to search other sections.
+            // The scanner is stopped in the 'hidden.bs.modal' event listener.
+                qrReaderResults.innerHTML = `
+                    <div class="alert alert-warning" role="alert">
+                        <h5 class="alert-heading">ID Not Found in Active Flock</h5>
+                        <p>The scanned ID <strong>"${decodedText}"</strong> is not active. It may have been sold or marked as deceased.</p>
+                        <hr>
+                        <p class="mb-0">Where would you like to search?</p>
+                    </div>
+                    <div class="d-grid gap-2 mt-2">
+                        <button class="btn btn-outline-success" id="searchSoldBtn">
+                            <i class="fas fa-dollar-sign me-2"></i>Search in Sold Records
+                        </button>
+                        <button class="btn btn-outline-secondary" id="searchArchivedBtn">
+                            <i class="fas fa-archive me-2"></i>Search in Deceased Records
+                        </button>
+                    </div>
+                `;
+    
+                // Helper function to navigate to a section and pre-fill the search bar
+                const navigateToSection = (sectionId) => {
+                    qrScannerModal.hide();
+                    const link = mainNav.querySelector(`a[data-section="${sectionId}"]`);
+                    if (link) {
+                        link.click();
+                        // Auto-fill the search bar on the target page for a seamless experience
+                        setTimeout(() => {
+                            const searchInput = document.querySelector(`#${sectionId}Section input[data-table-body-id]`);
+                            if (searchInput) {
+                                searchInput.value = decodedText;
+                                searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            }
+                        }, 250); // Delay to allow the section to become visible
+                    }
+                };
+    
+                // Add event listeners to the new buttons after they are added to the DOM
+                document.getElementById('searchSoldBtn').addEventListener('click', () => navigateToSection('saled'));
+                document.getElementById('searchArchivedBtn').addEventListener('click', () => navigateToSection('archived'));
 
-            qrReaderResults.innerHTML = `
-                <div class="alert alert-warning" role="alert">
-                    <h5 class="alert-heading">ID Not Found in Active Flock</h5>
-                    <p>The scanned ID <strong>"${decodedText}"</strong> is not active. It may have been sold or marked as deceased.</p>
-                    <hr>
-                    <p class="mb-0">Where would you like to search?</p>
-                </div>
-                <div class="d-grid gap-2 mt-2">
-                    <button class="btn btn-outline-success" id="searchSoldBtn">
-                        <i class="fas fa-dollar-sign me-2"></i>Search in Sold Records
-                    </button>
-                    <button class="btn btn-outline-secondary" id="searchArchivedBtn">
-                        <i class="fas fa-archive me-2"></i>Search in Deceased Records
-                    </button>
-                </div>
-            `;
-
-            // Helper function to navigate to a section and pre-fill the search bar
-            const navigateToSection = (sectionId) => {
-                qrScannerModal.hide();
-                const link = mainNav.querySelector(`a[data-section="${sectionId}"]`);
-                if (link) {
-                    link.click();
-                    // Auto-fill the search bar on the target page for a seamless experience
-                    setTimeout(() => {
-                        // Find the search input within the newly visible section
-                        const searchInput = document.querySelector(`#${sectionId}Section input[data-table-body-id]`);
-                        if (searchInput) {
-                            searchInput.value = decodedText;
-                            // Dispatch an 'input' event to trigger the filtering logic in app.js
-                            searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-                        }
-                    }, 250); // Delay to allow the section to become visible
-                }
-            };
-
-            // Add event listeners to the new buttons
-            document.getElementById('searchSoldBtn').addEventListener('click', () => navigateToSection('saled'));
-            document.getElementById('searchArchivedBtn').addEventListener('click', () => navigateToSection('archived'));
         }
     };
     

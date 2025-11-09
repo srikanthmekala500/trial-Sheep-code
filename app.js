@@ -4072,14 +4072,8 @@ function renderProfileTreatmentHistoryTab(record) {
 
     const tableHtml = `
         <table class="table table-striped table-hover align-middle">
-            <thead class="table-light">
             <thead class="table-dark">
                 <tr>
-                    <th style="width: 15%;">Date</th>
-                    <th style="width: 35%;">Details</th>
-                    <th style="width: 25%;">Notes & Symptoms</th>
-                    <th class="text-end" style="width: 10%;">Cost</th>
-                    <th class="text-center" style="width: 10%;">Actions</th>
                     <th style="width: 15%;">Date & Type</th>
                     <th style="width: 30%;">Details</th>
                     <th class="text-end" style="width: 10%;">Cost (₹)</th>
@@ -4099,9 +4093,6 @@ function renderProfileTreatmentHistoryTab(record) {
                     `;
 
                     const detailsHtml = `
-                        <div><strong>${escapeHTML(entry.medication || 'N/A')}</strong></div>
-                        <div class="small text-muted">Dosage: ${escapeHTML(entry.dosage || 'N/A')}</div>
-                        <div class="small">${followUpDisplay.html}</div>
                         <div><strong>Medication:</strong> ${escapeHTML(entry.medication || 'N/A')}</div>
                         <div class="small"><strong>Dosage:</strong> ${escapeHTML(entry.dosage || 'N/A')}</div>
                         <div class="small mt-1"><strong>Follow-up:</strong> ${followUpDisplay.html}</div>
@@ -4111,21 +4102,14 @@ function renderProfileTreatmentHistoryTab(record) {
                         ${entry.symptoms ? `<div class="small text-danger-emphasis"><strong>Symptoms:</strong> ${escapeHTML(entry.symptoms)}</div>` : ''}
                         ${entry.treatmentNotes ? `<div class="small text-muted fst-italic">${escapeHTML(entry.treatmentNotes)}</div>` : ''}
                     `;
-                    const treatmentBadgeClass = getTreatmentBadgeClass(entry.treatmentType);
 
                     return `
                         <tr class="${followUpDisplay.rowClass}">
-                            <td>
-                                <div>${formatDate(entry.treatmentDate)}</div>
-                                <span class="badge ${treatmentBadgeClass} mt-1">${escapeHTML(entry.treatmentType || 'General')}</span>
-                            </td>
                             <td>${dateHtml}</td>
                             <td>${detailsHtml}</td>
                             <td class="text-end fw-bold">${entry.cost ? formatCurrency(entry.cost) : 'N/A'}</td>
                             <td>${notesHtml}</td>
-                            <td class="text-end fw-bold">${entry.cost ? formatCurrency(entry.cost) : 'N/A'}</td>
                             <td class="text-center">
-                                <button class="btn btn-sm btn-outline-primary js-edit-treatment" data-record-id="${record.id}" data-entry-id="${entryId}" title="Edit"><i class="fas fa-edit"></i></button>
                                 <button class="btn btn-sm btn-outline-primary js-edit-treatment" data-record-id="${record.id}" data-entry-id="${entryId}" title="Edit"><i class="fas fa-edit"></i> Edit</button>
                             </td>
                         </tr>`;
