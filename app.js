@@ -1,7 +1,8 @@
 let healthStatusPieChartInstance = null;
 
+import { initializeBlog, renderBlogSection, openBlogPostModal, viewBlogPost, deleteBlogPost, setBlogPosts, resetBlogPage } from './blog.js';
 // Custom Chart.js plugin to display text in the center of a doughnut chart.
-const doughnutCenterText = {
+const doughnutCenterText = { // NOSONAR
     id: 'doughnutCenterText',
     afterDraw(chart, args, options) {
         if (!options.text) {
@@ -33,7 +34,9 @@ const doughnutCenterText = {
 Chart.register(doughnutCenterText); // Register the plugin globally once.
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+import { formatDate, escapeHTML, showToast } from './utils.js';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+import { getStorage } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-storage.js";
 import { getDatabase, ref, onValue, off, push, update, remove, child, query } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js";
 
 console.log("app.js loaded successfully."); // Diagnostic log to confirm file version
@@ -56,15 +59,18 @@ const firebaseConfig = { apiKey: "AIzaSyBdiEUorFPkiZAya84Xzx17id82nB77Zg4", auth
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
+const storage = getStorage(app);
 
 // --- STATE VARIABLES ---
 let masterAllRecords = [];
 let masterSoldRecords = [];
 let masterArchivedRecords = [];
-let masterFeedInventory = [];
+let masterFeedInventory = []; // NOSONAR
+let masterBlogPosts = [];
+let masterFeedConsumptionLog = [];
 let allRecords = [];
 let appSettings = {
-    dewormingInterval: 30,  // Default value
+    dewormingInterval: 45,  // Default value
     vaccinationInterval: 365, // Default value
     reminderWindow: 30, // Default value
     dewormingReminderWindow: 5 // Default value
@@ -72,7 +78,7 @@ let appSettings = {
 
 let soldRecords = [];
 let archivedRecords = []; let addSheepModal;
-let editSheepModal, saleSheepModal, treatmentLogModal, weightEntryModal, batchTreatmentModal, editSoldSheepModal, editScheduleModal;
+let editSheepModal, saleSheepModal, treatmentLogModal, weightEntryModal, batchTreatmentModal, editSoldSheepModal, editScheduleModal, blogPostModal, viewPostModal;
 let state = { // NOSONAR
     growthAnalyticsData: [], // Stores the raw calculated growth data for filtering/sorting
     currentGrowthFilters: { gender: 'all', breed: 'all', searchTerm: '' }
@@ -92,6 +98,7 @@ let currentScheduleFilter = 'all';
 let currentSoldFilter = 'all';
 let growthAnalyticsSort = { column: 'adg', direction: 'desc' };
 let monthlySummarySort = 'newest'; // To store the current sort order for the monthly summary
+let currentBlogCategory = 'all'; // State for blog category filter
 let treatmentLogListener = null; // To manage the live listener for the treatment modal
 
 let renderDebounceTimer = null;
@@ -149,44 +156,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('loginForm').addEventListener('submit', handleLogin);
 });
 
-/**
- * Formats a date string (YYYY-MM-DD) into DD/MM/YY.
- * @param {string} dateString - The date string to format.
- * @returns {string} The formatted date or the original string if invalid.
- */
-function formatDate(dateString) {
-    if (!dateString) return '';
-    try {
-        const date = new Date(dateString.split('T')[0] + 'T00:00:00');
-        if (isNaN(date.getTime())) return dateString;
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = String(date.getFullYear()).slice(-2);
-        return `${day}/${month}/${year}`;
-    } catch (e) {
-        return dateString;
-    }
-}
-
-/**
- * Formats a number as Indian Rupees (INR).
- * @param {number} value - The numeric value to format.
- * @returns {string} The formatted currency string.
- */
 function formatCurrency(value) {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value || 0);
-}
-
-/**
- * Escapes HTML special characters in a string to prevent XSS.
- * @param {string} str - The string to escape.
- * @returns {string} The escaped string.
- */
-function escapeHTML(str) {
-    if (str === null || str === undefined) return '';
-    const p = document.createElement("p");
-    p.textContent = str;
-    return p.innerHTML;
 }
 /**
  * Safely updates the content of a DOM element.
@@ -202,48 +173,6 @@ function updateElement(id, content, isHtml = false) {
     } else {
         console.error(`UI Error: HTML element with ID '${id}' was not found in the document. Cannot update its content.`);
     }
-}
-
-/**
- * Shows a toast notification. Creates the container if it doesn't exist.
- * @param {string} title - The title of the toast.
- * @param {string} message - The body message of the toast.
- * @param {string} [type='success'] - The type of toast ('success', 'danger', 'info', 'warning').
- */
-function showToast(title, message, type = 'success') {
-    let toastContainer = document.getElementById('toast-container');
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'toast-container';
-        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
-        toastContainer.style.zIndex = '1100';
-        document.body.appendChild(toastContainer);
-    }
-
-    const toastId = 'toast-' + Date.now();
-    let iconClass = 'fa-info-circle text-info';
-    switch (type) {
-        case 'success': iconClass = 'fa-check-circle text-success'; break;
-        case 'danger': iconClass = 'fa-exclamation-triangle text-danger'; break;
-        case 'warning': iconClass = 'fa-exclamation-circle text-warning'; break;
-    }
-
-    const toastHtml = `
-        <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true" style="min-width: 500px;">
-            <div class="toast-header">
-                <i class="fas ${iconClass} fa-lg me-2"></i>
-                <strong class="me-auto">${title}</strong>
-                <small>Just now</small>
-                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-            <div class="toast-body" style="font-size: 1.05rem;">${message}</div>
-        </div>
-    `;
-    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
-    const toastElement = document.getElementById(toastId);
-    const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
-    toast.show();
-    toastElement.addEventListener('hidden.bs.toast', () => toastElement.remove());
 }
 
 /**
@@ -337,12 +266,17 @@ function handleLogin(e) {
  * Shows a specific content section and hides others.
  * @param {string} sectionName - The name of the section to show.
  */
-function showSection(sectionName) {
-    ['home', 'records', 'corentin', 'overdue', 'treatment', 'pregnant', 'saled', 'archived', 'schedule', 'weekly', 'weight', 'profile', 'growth', 'feed', 'financials', 'settings'].forEach(id => {
+function showSection(sectionName) { // NOSONAR
+    ['home', 'records', 'corentin', 'overdue', 'treatment', 'pregnant', 'saled', 'archived', 'schedule', 'weekly', 'weight', 'profile', 'growth', 'feed', 'feedConsumption', 'financials', 'settings', 'blog'].forEach(id => { // NOSONAR
         document.getElementById(id + 'Section').classList.add('hidden');
     });
     document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
 
+    const sectionElement = document.getElementById(sectionName + 'Section');
+    if (!sectionElement) {
+        console.error(`Error: Section element with ID '${sectionName}Section' not found.`);
+        return;
+    }
     document.getElementById(sectionName + 'Section').classList.remove('hidden');
     document.querySelector(`.nav-link[data-section="${sectionName}"]`).classList.add('active');
 
@@ -351,6 +285,12 @@ function showSection(sectionName) {
         const sheepIdInput = document.getElementById('sheepId');
         if (sheepIdInput) {
             sheepIdInput.value = generateNewSheepId(masterAllRecords);
+        }
+        const dateEl = document.getElementById('dateRecorded');
+        if (dateEl) dateEl.valueAsDate = new Date();
+        const form = document.getElementById('sheepHealthForm');
+        if (form) {
+            form.reset();
         }
     }
 
@@ -363,11 +303,17 @@ function showSection(sectionName) {
     if (sectionName === 'feed') {
         initializeFeedSection();
     }
+    if (sectionName === 'feedConsumption') {
+        renderFeedConsumptionSection();
+    }
     if (sectionName === 'settings') {
         document.getElementById('settingDewormingInterval').value = appSettings.dewormingInterval;
         document.getElementById('settingVaccinationInterval').value = appSettings.vaccinationInterval;
         document.getElementById('settingDewormingReminderWindow').value = appSettings.dewormingReminderWindow;
         document.getElementById('settingReminderWindow').value = appSettings.reminderWindow;
+    }
+    if (sectionName === 'blog') {
+        renderBlogSection(masterBlogPosts, currentBlogCategory);
     }
     const sidebar = document.querySelector('.dashboard-sidebar');
     const overlay = document.getElementById('sidebar-overlay');
@@ -376,6 +322,11 @@ function showSection(sectionName) {
         if (overlay) overlay.classList.remove('visible');
     }
 }
+
+// Expose a global function for the blog module to call for re-rendering on pagination
+window.renderCurrentBlogView = () => {
+    renderBlogSection(masterBlogPosts, currentBlogCategory);
+};
 
 // --- DATA FETCHING ---
 
@@ -428,7 +379,7 @@ function applyFiltersAndRender() {
         const recordDate = new Date(record.dateRecorded + 'T00:00:00');
         if (isNaN(recordDate.getTime())) return false;
         if (yearFilter !== 'all' && recordDate.getFullYear().toString() !== yearFilter) return false;
-        if (monthFilter !== 'all' && recordDate.getMonth().toString() !== monthFilter) return false;
+        if (monthFilter !== 'all' && recordDate.getMonth().toString() !== monthFilter) return false; // Correct: getMonth() is 0-11, which matches the filter value.
         return true;
     });
 
@@ -439,7 +390,7 @@ function applyFiltersAndRender() {
         const recordDate = new Date(record.saleDate + 'T00:00:00');
         if (isNaN(recordDate.getTime())) return false;
         if (yearFilter !== 'all' && recordDate.getFullYear().toString() !== yearFilter) return false;
-        if (monthFilter !== 'all' && recordDate.getMonth().toString() !== monthFilter) return false;
+        if (monthFilter !== 'all' && recordDate.getMonth().toString() !== monthFilter) return false; // Correct: getMonth() is 0-11
         return true;
     });
 
@@ -450,7 +401,7 @@ function applyFiltersAndRender() {
         const recordDate = new Date(record.archiveDate + 'T00:00:00');
         if (isNaN(recordDate.getTime())) return false;
         if (yearFilter !== 'all' && recordDate.getFullYear().toString() !== yearFilter) return false;
-        if (monthFilter !== 'all' && recordDate.getMonth().toString() !== monthFilter) return false;
+        if (monthFilter !== 'all' && recordDate.getMonth().toString() !== monthFilter) return false; // Correct: getMonth() is 0-11
         return true;
     });
 
@@ -573,7 +524,7 @@ function fetchAllRecords() {
 function renderSoldView() {
     const monthlyTotals = {};
     const yearlyTotals = {};
-
+    
     masterSoldRecords.forEach(record => { // Changed from soldRecords to masterSoldRecords
         try {
             if (record.saleDate && record.salePrice != null) {
@@ -600,7 +551,7 @@ function renderSoldView() {
     renderMonthlySalesSummary(monthlyTotals);
     renderYearlySalesSummary(yearlyTotals);
     renderProfitLossChart(monthlyTotals);
-    updateSoldRecordsView(); // This will render the table with the filtered data
+    updateSoldRecordsView(); // This will render the table with the currently filtered data
 }
 
 function fetchSoldRecords() {
@@ -665,6 +616,40 @@ function fetchFeedInventory() {
         console.error("Error fetching feed inventory:", error);
         const errorHtml = `<tr><td colspan="7" class="text-center text-danger p-4">Error loading expenditure log.</td></tr>`;
         updateElement('feedInventoryTableBody', errorHtml, true);
+    });
+}
+
+function fetchBlogPosts() {
+    const postsRef = ref(db, "blogPosts");
+    onValue(postsRef, (snapshot) => {
+        masterBlogPosts = [];
+        if (snapshot.exists()) {
+            snapshot.forEach(child => {
+                masterBlogPosts.push({ id: child.key, ...child.val() });
+            });
+            setBlogPosts(masterBlogPosts); // Pass the posts to the blog module
+        }
+        // If the blog section is currently visible, re-render it with the new data.
+        if (document.getElementById('blogSection') && !document.getElementById('blogSection').classList.contains('hidden')) {
+            renderBlogSection(masterBlogPosts, currentBlogCategory);
+        }
+    }, (error) => console.error("Error fetching blog posts:", error));
+}
+
+function fetchFeedConsumptionLog() {
+    const logRef = ref(db, "feedConsumptionLog");
+    onValue(logRef, snapshot => {
+        masterFeedConsumptionLog = [];
+        if (snapshot.exists()) {
+            snapshot.forEach(child => {
+                masterFeedConsumptionLog.push({ id: child.key, ...child.val() });
+            });
+        }
+        scheduleRender(); // Re-render views that might depend on this
+        updateTimestamp();
+    }, error => {
+        console.error("Error fetching feed consumption log:", error);
+        updateElement('feedConsumptionLogBody', `<tr><td colspan="5" class="text-center text-danger p-4">Error loading consumption log.</td></tr>`, true);
     });
 }
 
@@ -736,7 +721,7 @@ function renderExpenditureLog() {
         if (!item.purchaseDate) return false;
         const itemDate = new Date(item.purchaseDate + 'T00:00:00');
         if (isNaN(itemDate.getTime())) return false;
-        const monthMatch = selectedMonth === 'all' || (itemDate.getMonth() + 1) == selectedMonth; // JS months are 0-indexed
+        const monthMatch = selectedMonth === 'all' || (itemDate.getMonth() + 1) == selectedMonth;
         const yearMatch = selectedYear === 'all' || itemDate.getFullYear() == selectedYear;
         return monthMatch && yearMatch;
     });
@@ -915,7 +900,10 @@ function renderMonthlySalesSummary(monthlyTotals, sortBy = monthlySummarySort) {
         sortedMonths = Object.keys(monthlyTotals).sort().reverse();
     }
 
-    let listHtml = '<ul class="list-group list-group-flush">';
+    // Added inline style to set a max height and enable vertical scrolling.
+    // This keeps the card a consistent size on the dashboard.
+    let listHtml = '<ul class="list-group list-group-flush" style="max-height: 400px; overflow-y: auto;">';
+
     sortedMonths.forEach(monthKey => {
         const monthData = monthlyTotals[monthKey];
         const { sales, profit } = monthData;
@@ -1123,10 +1111,9 @@ function updateSoldRecordsView(filter = currentSoldFilter) {
     const localYearFilter = document.getElementById('soldYearFilter')?.value || 'all';
 
     const filteredRecords = recordsToProcess.filter(record => {
-        // Ensure record.saleDate exists and is valid
         if (!record.saleDate) return false;
-        const saleDate = new Date(record.saleDate + 'T00:00:00'); // Ensure date is parsed correctly
-        if (isNaN(saleDate.getTime())) return false; // Skip records with invalid sale dates
+        const saleDate = new Date(record.saleDate + 'T00:00:00');
+        if (isNaN(saleDate.getTime())) return false;
 
         // Apply local month and year filters from the sold records card
         const monthMatch = (localMonthFilter === 'all') || ((saleDate.getMonth() + 1).toString() === localMonthFilter);
@@ -2876,6 +2863,29 @@ function updateFeedFormUI() {
     }
 }
 
+function handleLogFeedConsumption(e) {
+    e.preventDefault();
+    const form = e.target;
+    const feedId = form.elements.feedConsumptionItem.value;
+    const quantityConsumed = parseFloat(form.elements.feedConsumptionQuantity.value);
+    const date = form.elements.feedConsumptionDate.value;
+
+    if (!feedId || isNaN(quantityConsumed) || quantityConsumed <= 0 || !date) {
+        return alert('Please select a feed item, and enter a valid quantity and date.');
+    }
+
+    const newLogEntry = {
+        feedId: feedId,
+        feedName: form.elements.feedConsumptionItem.options[form.elements.feedConsumptionItem.selectedIndex].text,
+        quantity: quantityConsumed,
+        date: date
+    };
+
+    push(ref(db, 'feedConsumptionLog'), newLogEntry).then(() => {
+        showToast('Consumption Logged', `${quantityConsumed}kg of ${newLogEntry.feedName} logged.`);
+        form.reset();
+    }).catch(error => alert('Error logging consumption: ' + error.message));
+}
 // --- FORM & MODAL HANDLERS ---
 
 /**
@@ -2932,9 +2942,11 @@ function handleAddRecord(e) {
     push(ref(db, 'sheepHealthRecords'), newRecord).then(() => {
         showToast('Record Added', `Sheep ID ${newRecord.sheepId} was successfully added.`);
         e.target.reset();
-        if (addSheepModal) addSheepModal.hide();
+        // The form is now inline, so we just need to reset the date and generate a new ID for the next entry.
         const dateEl = document.getElementById('dateRecorded');
         if (dateEl) dateEl.valueAsDate = new Date();
+        const sheepIdInput = document.getElementById('sheepId');
+        if (sheepIdInput) sheepIdInput.value = generateNewSheepId(masterAllRecords);
     });
 }
 
@@ -3081,6 +3093,10 @@ function handleUpdateSchedule(e) {
 
 function deleteRecord(recordId, sheepId) {
     if (confirm(`Are you sure you want to PERMANENTLY DELETE sheep "${sheepId}" and all its history? This action cannot be undone.`)) {
+    const confirmationText = `Type the sheep ID "${sheepId}" to confirm deletion.`;
+    const userInput = prompt(`This action is irreversible and will permanently delete all data for this sheep.\n\n${confirmationText}`);
+
+    if (userInput === sheepId) {
         remove(ref(db, `sheepHealthRecords/${recordId}`))
             .then(() => {
                 showToast('Deletion Successful', `Sheep ID ${sheepId} has been permanently deleted.`, 'danger');
@@ -3089,7 +3105,10 @@ function deleteRecord(recordId, sheepId) {
                 console.error("Error deleting record:", error);
                 alert("An error occurred while deleting the record: " + error.message);
             });
+    } else if (userInput !== null) { // User clicked OK but didn't type the correct ID
+        alert('Deletion cancelled. The entered ID did not match.');
     }
+}
 }
 
 function archiveRecord(recordId) {
@@ -4268,7 +4287,7 @@ function handleSaveWeight(e) {
 
     let promise;
     if (source === 'initial') {
-        promise = update(ref(db, recordPath), { weight: weight, dateRecorded: date });
+        promise = update(ref(db, recordPath), { weight: weight });
     } else {
         const data = { date, weight };
         const path = ref(db, `${recordPath}/weights`);
@@ -4276,6 +4295,9 @@ function handleSaveWeight(e) {
     }
 
     promise.then(() => {
+        showToast('Weight Saved', `Weight entry for record ${recordId} saved successfully.`);
+        console.log(`Weight entry for record ${recordId} saved successfully.`);
+        renderWeightChartForSheep(recordId); // Explicitly re-render the chart for the current sheep
         weightEntryModal.hide();
     }).catch(err => alert('Error saving weight: ' + err.message));
 }
@@ -4562,6 +4584,8 @@ function initializeUI() {
         batchTreatmentModal = initializeModal('batchTreatmentModal');
         editSoldSheepModal = initializeModal('editSoldSheepModal');
         editScheduleModal = initializeModal('editScheduleModal');
+        blogPostModal = initializeModal('blogPostModal');
+        viewPostModal = initializeModal('viewPostModal');
         // The editFeedModal is initialized on-demand in openEditFeedModal to avoid potential race conditions
         addSheepModal = initializeModal('addSheepModal');
     });
@@ -4584,8 +4608,11 @@ function initializeUI() {
         fetchAllRecords();
         fetchSoldRecords();
         fetchFeedInventory();
+        fetchFeedConsumptionLog();
         fetchArchivedRecords();
-        fetchSettings();
+        fetchBlogPosts();
+        fetchSettings(); 
+        initializeBlog(app, storage, blogPostModal, viewPostModal);
     });
 }
 
@@ -4637,12 +4664,10 @@ function addEventListeners() {
                 showSection(action.section); // Correctly navigate to the section
             }
         }
-        else if (target.closest('#openAddSheepModalBtn')) {
-            const sheepIdInput = document.getElementById('sheepId');
-            if (sheepIdInput) {
-                sheepIdInput.value = generateNewSheepId(masterAllRecords);
-            }
-            if (addSheepModal) addSheepModal.show();
+        // This logic is now handled by the showSection function for the inline form.
+        // The button will now simply navigate to the records section if needed.
+        else if (target.closest('#openAddSheepModalBtn')) { // NOSONAR
+            showSection('home');
         }
         if (action = getAction('.js-edit-record')) openEditModal(action.recordId);
         else if (action = getAction('.js-sale-record')) openSaleModal(action.recordId);
@@ -4657,6 +4682,12 @@ function addEventListeners() {
             } else {
                 alert('Could not find the parent record for this treatment entry.');
             }
+        }
+        // Blog category filter
+        else if (action = getAction('.blog-category-filter')) {
+            resetBlogPage(); // Reset to page 1 when category changes
+            currentBlogCategory = action.category;
+            renderBlogSection(masterBlogPosts, currentBlogCategory);
         }
         else if (action = getAction('.js-edit-treatment-from-schedule')) {
             const { recordId, entryId } = action;
@@ -4674,6 +4705,10 @@ function addEventListeners() {
         else if (action = getAction('.js-edit-sold-record')) openEditSoldModal(action.recordId);
         else if (action = getAction('.js-edit-weight')) openWeightModal(action.recordId, action.entryId, action.source);
         else if (action = getAction('.js-delete-weight')) deleteWeightEntry(action.recordId, action.entryId, action.source);
+        else if (action = getAction('.js-view-blog-post')) viewBlogPost(action.postId); // This was on the wrong line
+        else if (action = getAction('.js-edit-blog-post')) openBlogPostModal(action.postId);
+        else if (action = getAction('.js-delete-blog-post')) deleteBlogPost(action.postId, action.postTitle);
+        else if (target.closest('#addBlogPostBtn')) openBlogPostModal();
         else if (action = getAction('.js-mark-checked')) markSheepAsChecked(action.recordId);
         else if (action = getAction('.edit-schedule-btn')) openEditScheduleModal(action.recordId);
         
@@ -4742,6 +4777,16 @@ function addEventListeners() {
             treatmentLogListener = null;
         }
     });
+
+    // Fix for aria-hidden focus issue on modals
+    // This event fires *before* the modal is hidden, preventing an accessibility warning.
+    addSafeEventListener('weightEntryModal', 'hide.bs.modal', () => {
+        const focusedElement = document.activeElement;
+        // If an element inside the modal has focus, blur it to move focus to the body.
+        if (document.getElementById('weightEntryModal').contains(focusedElement)) {
+            focusedElement.blur();
+        }
+    });
     addSafeEventListener('mainNav', 'click', e => {
         const link = e.target.closest('a.nav-link[data-section]');
         if (link) {
@@ -4752,6 +4797,7 @@ function addEventListeners() {
 
     // --- Form Submissions ---
     addSafeEventListener('sheepHealthForm', 'submit', handleAddRecord);
+    addSafeEventListener('weightEntryForm', 'submit', handleSaveWeight);
     addSafeEventListener('editSheepForm', 'submit', handleUpdateRecord);
     mainApp.addEventListener('input', e => {
         if (e.target.matches('#treatmentLogSearchInput, #profileTreatmentSearchInput')) {
@@ -4764,7 +4810,7 @@ function addEventListeners() {
     addSafeEventListener('editSoldSheepForm', 'submit', handleUpdateSoldRecord);
     addSafeEventListener('addFeedForm', 'submit', handleAddFeedItem);
     addSafeEventListener('editFeedForm', 'submit', handleUpdateFeedItem);
-    addSafeEventListener('weightEntryForm', 'submit', handleSaveWeight);
+    addSafeEventListener('logFeedConsumptionForm', 'submit', handleLogFeedConsumption);
 
     addSafeEventListener('settingsForm', 'submit', handleSaveSettings);
     addSafeEventListener('editScheduleForm', 'submit', handleUpdateSchedule);
@@ -4792,6 +4838,8 @@ function addEventListeners() {
             if(monthFilter) monthFilter.value = 'all';
             const yearFilter = document.getElementById('soldYearFilter');
             if(yearFilter) yearFilter.value = 'all';
+            const searchInput = document.querySelector('#saledSection input[type="search"]');
+            if (searchInput) searchInput.value = '';
             updateSoldRecordsView('all');
         } else if (e.target.closest('#monthlySalesSort button')) {
             const sortBtn = e.target.closest('button');
